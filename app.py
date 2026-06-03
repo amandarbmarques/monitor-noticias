@@ -83,41 +83,53 @@ with st.sidebar:
     st.caption("v1.3 • Atualizado via GitHub Actions")
 
 # -------------------
-# MÉTRICAS CUSTOMIZADAS (CARDS EM HTML)
+# MÉTRICAS CUSTOMIZADAS (CARDS EM HTML - VERSÃO BLINDADA)
 # -------------------
 total = len(df)
 contagem = df["veiculo"].value_counts()
 
-st.markdown(f"""
+# Criamos a string HTML limpa, usando marcadores isolados para as variáveis
+html_cards = """
     <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 25px;">
         
         <div style="flex: 1; min-width: 160px; background-color: #4F46E5; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #4F46E5;">
             <p style="margin: 0; font-size: 12px; color: #E0E7FF; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">📈 Total Geral</p>
-            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #FFFFFF; font-weight: 700;">{total}</h3>
+            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #FFFFFF; font-weight: 700;">{total_geral}</h3>
         </div>
 
         <div style="flex: 1; min-width: 160px; background-color: #FFFFFF; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #EEF0F5; border-left: 5px solid #1E293B;">
             <p style="margin: 0; font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">🔹 Estadão</p>
-            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #1E293B; font-weight: 700;">{contagem.get("Estadão", 0)}</h3>
+            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #1E293B; font-weight: 700;">{qtd_estadao}</h3>
         </div>
 
         <div style="flex: 1; min-width: 160px; background-color: #FFFFFF; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #EEF0F5; border-left: 5px solid #E11D48;">
             <p style="margin: 0; font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">🔸 Folha</p>
-            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #1E293B; font-weight: 700;">{contagem.get("Folha", 0)}</h3>
+            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #1E293B; font-weight: 700;">{qtd_folha}</h3>
         </div>
 
         <div style="flex: 1; min-width: 160px; background-color: #FFFFFF; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #EEF0F5; border-left: 5px solid #2563EB;">
             <p style="margin: 0; font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">🟡 UOL</p>
-            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #1E293B; font-weight: 700;">{contagem.get("UOL", 0)}</h3>
+            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #1E293B; font-weight: 700;">{qtd_uol}</h3>
         </div>
 
         <div style="flex: 1; min-width: 160px; background-color: #FFFFFF; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #EEF0F5; border-left: 5px solid #059669;">
             <p style="margin: 0; font-size: 12px; color: #64748B; font-weight: 600; text-transform: uppercase;">🔴 CNN & JOTA</p>
-            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #1E293B; font-weight: 700;">{contagem.get("CNN Brasil", 0) + contagem.get("JOTA", 0)}</h3>
+            <h3 style="margin: 5px 0 0 0; font-size: 28px; color: #1E293B; font-weight: 700;">{qtd_outros}</h3>
         </div>
 
     </div>
-""", unsafe_allow_html=True)
+"""
+
+# Injeta os números dinâmicos com segurança usando .format()
+st.html(
+    html_cards.format(
+        total_geral=total,
+        qtd_estadao=contagem.get("Estadão", 0),
+        qtd_folha=contagem.get("Folha", 0),
+        qtd_uol=contagem.get("UOL", 0),
+        qtd_outros=contagem.get("CNN Brasil", 0) + contagem.get("JOTA", 0)
+    )
+)
 
 # -------------------
 # FILTROS E BUSCA (Dentro de um painel expansível)
