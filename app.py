@@ -5,10 +5,9 @@ import sqlite3
 # -------------------
 # Configuração da página
 # -------------------
-
 st.set_page_config(
     page_title="Monitor de Notícias",
-    layout="wide"
+    layout="wide"  # Garante que o app use a tela inteira
 )
 
 st.title("📰 Monitor de Notícias")
@@ -16,9 +15,7 @@ st.title("📰 Monitor de Notícias")
 # -------------------
 # Carrega dados (Seguro contra concorrência)
 # -------------------
-
 try:
-    # O check_same_thread=False permite que o Streamlit consulte o banco sem travamentos
     with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
         df = pd.read_sql(
             """
@@ -29,7 +26,6 @@ try:
             conn
         )
 except Exception as e:
-    # Caso o banco de dados ainda não exista na nuvem, cria um DataFrame estruturado vazio
     df = pd.DataFrame(columns=["veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 # -------------------
@@ -38,25 +34,42 @@ except Exception as e:
 if not df.empty:
     try:
         df['data_publicacao'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
-        
         if df['data_publicacao'].dt.tz is not None:
             df['data_publicacao'] = df['data_publicacao'].dt.tz_convert('America/Sao_Paulo')
         else:
             df['data_publicacao'] = df['data_publicacao'].dt.tz_localize('UTC').dt.tz_convert('America/Sao_Paulo')
-            
         df['data_publicacao'] = df['data_publicacao'].dt.strftime('%d/%m/%Y %H:%M')
     except Exception:
         pass
 
 # -------------------
-# Métricas Dinâmicas
+# BARRA LATERAL (Sidebar) - Perfil de Autores e Infos
 # -------------------
+st.sidebar.header("✍️ Ranking de Autores")
 
+if not df.empty:
+    ranking_autores = df["autor"].value_counts().reset_index()
+    ranking_autores.columns = ["Autor", "Matérias"]
+    
+    # Exibe a tabela de autores na barra lateral de forma compacta
+    st.sidebar.dataframe(
+        ranking_autores.head(15),
+        use_container_width=True,
+        hide_index=True,
+        height=400  # Define um tamanho fixo bom para a barra lateral
+    )
+else:
+    st.sidebar.write("Nenhum autor mapeado ainda.")
+
+st.sidebar.divider()
+st.sidebar.write("💡 *Dica: Use os filtros principais para ajustar a tabela ao lado.*")
+
+# -------------------
+# CORPO PRINCIPAL - Métricas Dinâmicas
+# -------------------
 st.metric("Total de matérias monitoradas", len(df))
 
-# Descobre e conta os veículos presentes no banco de dados automaticamente
 contagem_veiculos = df["veiculo"].value_counts()
-
 if not contagem_veiculos.empty:
     cols = st.columns(len(contagem_veiculos))
     for i, (veiculo, total) in enumerate(contagem_veiculos.items()):
@@ -65,128 +78,67 @@ if not contagem_veiculos.empty:
 st.divider()
 
 # -------------------
-# Resumo informativo
+# Resumo informativo e Filtros de Busca
 # -------------------
+st.subheader("Filtros e Busca")
 
-st.subheader("Resumo")
+col_busca, col_mult1, col_mult2 = st.columns([2, 1, 1])
 
-st.write(
-    f"""
-    Existem **{len(df)} matérias** monitoradas.
+with col_busca:
+    busca = st.text_input("🔎 Buscar no título")
 
-    Foram encontradas matérias de **{df['veiculo'].nunique()} veículos** e
-    **{df['autor'].nunique()} autores**.
-    """
-)
+with col_mult1:
+    opcoes_veiculos = sorted(df["veiculo"].unique()) if not df.empty else []
+    veiculos = st.multiselect("Veículos", options=opcoes_veiculos, default=opcoes_veiculos)
 
-st.subheader("Autores mais ativos")
+with col_mult2:
+    opcoes_autores = sorted(df["autor"].dropna().unique()) if not df.empty else []
+    autores = st.multiselect("Filtrar por Autor", options=opcoes_autores)
 
-ranking_autores = (
-    df["autor"]
-    .value_counts()
-    .reset_index()
-)
-
-ranking_autores.columns = [
-    "Autor",
-    "Matérias"
-]
-
-st.dataframe(
-    ranking_autores.head(20),
-    use_container_width=True,
-    hide_index=True
-)
+# Aplicando os filtros no DataFrame
+if not df.empty:
+    if busca:
+        df = df[df["titulo"].str.contains(busca, case=False, na=False)]
+    df = df[df["veiculo"].isin(veiculos)]
+    if autores:
+        df = df[df["autor"].isin(autores)]
 
 # -------------------
-# Busca por palavra
+# Tabela de Resultados EXPANDIDA
 # -------------------
-
-busca = st.text_input(
-    "🔎 Buscar no título"
-)
-
-if busca and not df.empty:
-    df = df[
-        df["titulo"].str.contains(
-            busca,
-            case=False,
-            na=False
-        )
-    ]
-
-# -------------------
-# Filtro por veículo
-# -------------------
-
-opcoes_veiculos = sorted(df["veiculo"].unique()) if not df.empty else []
-
-veiculos = st.multiselect(
-    "Veículos",
-    options=opcoes_veiculos,
-    default=opcoes_veiculos
-)
+st.subheader("📋 Matérias Capturadas")
 
 if not df.empty:
-    df = df[df["veiculo"].isin(veiculos)]
+    # Exibe a tabela bem grande e espaçada
+    st.dataframe(
+        df[["veiculo", "titulo", "autor", "url", "data_publicacao"]],
+        use_container_width=True,
+        hide_index=True,
+        height=600,  # Aumentei consideravelmente a altura para não parecer minimizada
+        column_config={
+            "veiculo": st.column_config.TextColumn("Veículo", width="medium"),
+            "titulo": st.column_config.TextColumn("Título da Matéria", width="large"),
+            "autor": st.column_config.TextColumn("Autor", width="medium"),
+            "data_publicacao": st.column_config.TextColumn("Data/Hora", width="small"),
+            "url": st.column_config.LinkColumn(
+                "Abrir",
+                help="Clique para ler a matéria original",
+                display_text="Ler Matéria",
+                width="small"
+            )
+        }
+    )
+else:
+    st.info("Nenhuma notícia encontrada para os filtros selecionados.")
 
 # -------------------
-# Filtro por autor
+# Download CSV (Discretamente no rodapé)
 # -------------------
-
-opcoes_autores = sorted(df["autor"].dropna().unique()) if not df.empty else []
-
-autores = st.multiselect(
-    "Autores",
-    options=opcoes_autores
-)
-
-if autores and not df.empty:
-    df = df[df["autor"].isin(autores)]
-
-st.divider()
-
-# -------------------
-# Download CSV
-# -------------------
-
-csv = df.to_csv(
-    index=False
-).encode("utf-8")
-
-st.download_button(
-    label="📥 Baixar CSV",
-    data=csv,
-    file_name="noticias.csv",
-    mime="text/csv"
-)
-
-# -------------------
-# Tabela de Resultados
-# -------------------
-
-st.dataframe(
-    df[
-        [
-            "veiculo",
-            "titulo",
-            "autor",
-            "url",
-            "data_publicacao"
-        ]
-    ],
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "veiculo": "Veículo",
-        "titulo": "Título",
-        "autor": "Autor",
-        "data_publicacao": "Data",
-
-        "url": st.column_config.LinkColumn(
-            "Abrir",
-            help="Abrir matéria",
-            display_text="Abrir"
-        )
-    }
-)
+if not df.empty:
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Baixar Dados Filtrados (CSV)",
+        data=csv,
+        file_name="noticias_filtradas.csv",
+        mime="text/csv"
+    )
