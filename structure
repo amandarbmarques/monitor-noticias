@@ -1,0 +1,7 @@
+news-monitor/
+│
+├── app.py
+├── collector.py
+├── database.py
+├── requirements.txt
+└── noticias.db
