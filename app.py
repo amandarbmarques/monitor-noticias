@@ -14,58 +14,50 @@ st.set_page_config(
 st.title("📰 Monitor de Notícias")
 
 # -------------------
-# Carrega dados
+# Carrega dados (Seguro contra concorrência)
 # -------------------
 
-conn = sqlite3.connect("noticias.db")
-
-df = pd.read_sql(
-    """
-    SELECT *
-    FROM noticias
-    ORDER BY data_publicacao DESC
-    """,
-    conn
-)
-
-conn.close()
-
-# ... código anterior de carga de dados ...
-df = pd.read_sql("SELECT * FROM noticias ORDER BY data_publicacao DESC", conn)
-conn.close()
+try:
+    # O check_same_thread=False permite que o Streamlit consulte o banco sem travamentos
+    with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
+        df = pd.read_sql(
+            """
+            SELECT *
+            FROM noticias
+            ORDER BY data_publicacao DESC
+            """,
+            conn
+        )
+except Exception as e:
+    # Caso o banco de dados ainda não exista na nuvem, cria um DataFrame estruturado vazio
+    df = pd.DataFrame(columns=["veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 # -------------------
 # Correção do Fuso Horário (UTC para Brasília)
 # -------------------
-try:
-    # Converte a coluna para o tipo datetime do pandas
-    df['data_publicacao'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
-    
-    # Se a data vier com fuso (UTC), localiza e converte para o de Brasília (-3)
-    if df['data_publicacao'].dt.tz is not None:
-        df['data_publicacao'] = df['data_publicacao'].dt.tz_convert('America/Sao_Paulo')
-    else:
-        # Se vier sem fuso, assume que é UTC e converte para Brasília
-        df['data_publicacao'] = df['data_publicacao'].dt.tz_localize('UTC').dt.tz_convert('America/Sao_Paulo')
+if not df.empty:
+    try:
+        df['data_publicacao'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
         
-    # Formata a exibição para ficar bonita na tabela (Ex: 03/06/2026 12:44)
-    df['data_publicacao'] = df['data_publicacao'].dt.strftime('%d/%m/%Y %H:%M')
-except Exception as e:
-    # Caso alguma linha dê erro de conversão, mantém o texto original para não quebrar o app
-    pass
+        if df['data_publicacao'].dt.tz is not None:
+            df['data_publicacao'] = df['data_publicacao'].dt.tz_convert('America/Sao_Paulo')
+        else:
+            df['data_publicacao'] = df['data_publicacao'].dt.tz_localize('UTC').dt.tz_convert('America/Sao_Paulo')
+            
+        df['data_publicacao'] = df['data_publicacao'].dt.strftime('%d/%m/%Y %H:%M')
+    except Exception:
+        pass
 
 # -------------------
 # Métricas Dinâmicas
 # -------------------
 
-# Métrica geral destacada
 st.metric("Total de matérias monitoradas", len(df))
 
-# Agrupa por veículo para gerar as mini-métricas
+# Descobre e conta os veículos presentes no banco de dados automaticamente
 contagem_veiculos = df["veiculo"].value_counts()
 
 if not contagem_veiculos.empty:
-    # Cria colunas automaticamente dependendo de quantos veículos existem no banco
     cols = st.columns(len(contagem_veiculos))
     for i, (veiculo, total) in enumerate(contagem_veiculos.items()):
         cols[i].metric(veiculo, total)
@@ -114,7 +106,7 @@ busca = st.text_input(
     "🔎 Buscar no título"
 )
 
-if busca:
+if busca and not df.empty:
     df = df[
         df["titulo"].str.contains(
             busca,
@@ -127,29 +119,30 @@ if busca:
 # Filtro por veículo
 # -------------------
 
+opcoes_veiculos = sorted(df["veiculo"].unique()) if not df.empty else []
+
 veiculos = st.multiselect(
     "Veículos",
-    options=sorted(df["veiculo"].unique()),
-    default=sorted(df["veiculo"].unique())
+    options=opcoes_veiculos,
+    default=opcoes_veiculos
 )
 
-df = df[
-    df["veiculo"].isin(veiculos)
-]
+if not df.empty:
+    df = df[df["veiculo"].isin(veiculos)]
 
 # -------------------
 # Filtro por autor
 # -------------------
 
+opcoes_autores = sorted(df["autor"].dropna().unique()) if not df.empty else []
+
 autores = st.multiselect(
     "Autores",
-    options=sorted(df["autor"].dropna().unique())
+    options=opcoes_autores
 )
 
-if autores:
-    df = df[
-        df["autor"].isin(autores)
-    ]
+if autores and not df.empty:
+    df = df[df["autor"].isin(autores)]
 
 st.divider()
 
