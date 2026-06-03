@@ -10,12 +10,18 @@ def coletar_uol():
     for item in rss.entries:
         autor = get_author(item.link)
 
+        # Trata e padroniza a data do RSS
+        if hasattr(item, "published_parsed") and item.published_parsed:
+            data_iso = datetime(*item.published_parsed[:6]).isoformat()
+        else:
+            data_iso = datetime.now().isoformat()
+
         noticia = {
             "veiculo": "UOL",
             "titulo": item.title,
             "autor": autor,
             "url": item.link,
-            "data_publicacao": getattr(item, "published", datetime.now().isoformat()),
+            "data_publicacao": data_iso,
             "data_coleta": datetime.now().isoformat()
         }
 
