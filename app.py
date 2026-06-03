@@ -47,6 +47,58 @@ st.title("📰 Monitor de Notícias")
 st.markdown("---")
 
 # -------------------
+# HEADER CUSTOMIZADO
+# -------------------
+
+# Captura a última atualização do banco para exibir no header
+if not df.empty:
+    ultima_atualizacao = df['data_coleta'].max()
+    try:
+        # Tenta formatar a data de coleta para algo legível
+        ultima_atualizacao = pd.to_datetime(ultima_atualizacao).strftime('%H:%M - %d/%m/%Y')
+    except:
+        ultima_atualizacao = "Agora"
+else:
+    ultima_atualizacao = "--:--"
+
+# Layout do Header
+col_tit, col_stat = st.columns([4, 1])
+
+with col_tit:
+    st.markdown(f"""
+        <div style="margin-bottom: -15px;">
+            <h1 style="color: #1E293B; font-size: 42px; font-weight: 800; margin-bottom: 0;">
+                Monitor de <span style="color: #4F46E5;">Notícias</span>
+            </h1>
+            <p style="color: #64748B; font-size: 16px; margin-top: 5px;">
+                Análise e clipping em tempo real dos principais portais brasileiros.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col_stat:
+    st.markdown(f"""
+        <div style="text-align: right; padding-top: 20px;">
+            <div style="display: inline-flex; align-items: center; background-color: #ECFDF5; border: 1px solid #10B981; padding: 4px 12px; border-radius: 20px;">
+                <span style="height: 8px; width: 8px; background-color: #10B981; border-radius: 50%; display: inline-block; margin-right: 8px; animation: pulse 2s infinite;"></span>
+                <span style="color: #065F46; font-size: 12px; font-weight: 700; text-transform: uppercase;">Sistema Live</span>
+            </div>
+            <p style="color: #94A3B8; font-size: 11px; margin-top: 8px; font-weight: 500;">
+                Última coleta: {ultima_atualizacao}
+            </p>
+        </div>
+        
+        <style>
+        @keyframes pulse {{
+            0% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }}
+            70% {{ transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }}
+            100% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }}
+        }}
+        </style>
+    """, unsafe_allow_html=True)
+
+st.markdown("---")
+# -------------------
 # Carrega dados (Seguro contra concorrência)
 # -------------------
 try:
