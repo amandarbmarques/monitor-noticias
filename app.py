@@ -68,15 +68,12 @@ except:
     df = pd.DataFrame(columns=["veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 # -------------------
-# Tratamento de Dados (Fuso Horário Brasília)
+# Tratamento de Dados Blindado (Sem travar o app)
 # -------------------
 if not df.empty:
     try:
+        # Conversão direta e segura para texto formatado
         df['data_publicacao'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
-        if df['data_publicacao'].dt.tz is not None:
-            df['data_publicacao'] = df['data_publicacao'].dt.tz_convert('America/Sao_Paulo')
-        else:
-            df['data_publicacao'] = df['data_publicacao'].dt.tz_localize('UTC').dt.tz_convert('America/Sao_Paulo')
         df['data_publicacao'] = df['data_publicacao'].dt.strftime('%d/%m/%Y %H:%M')
     except:
         pass
@@ -141,7 +138,7 @@ with st.sidebar:
         st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=450)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v1.7 • Atualizado via GitHub Actions")
+    st.caption("v1.8 • Atualizado via GitHub Actions")
 
 # -------------------
 # MÉTRICAS CUSTOMIZADAS
@@ -208,4 +205,39 @@ with st.expander("🔍 Ferramentas de Filtro e Busca", expanded=True):
         opcoes_a = sorted(df["autor"].dropna().unique()) if not df.empty else []
         autores = st.multiselect("Filtrar por Autor", options=opcoes_a)
 
-# Aplicação dos filtros
+# Aplicação dos filtros selecionados
+if not df.empty:
+    if busca:
+        df = df[df["titulo"].str.contains(busca, case=False, na=False)]
+    if veiculos:
+        df = df[df["veiculo"].isin(veiculos)]
+    if autores:
+        df = df[df["autor"].isin(autores)]
+
+# -------------------
+# TABELA PRINCIPAL EXPANDIDA COM PAGINAÇÃO NATIVA
+# -------------------
+st.subheader("📋 Clipping de Notícias")
+
+if not df.empty:
+    # Removemos o parâmetro height fixo que estava conflitando com a renderização em alguns servidores
+    st.dataframe(
+        df[["veiculo", "titulo", "autor", "url", "data_publicacao"]],
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "veiculo": st.column_config.TextColumn("Fonte", width="small"),
+            "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
+            "autor": st.column_config.TextColumn("Autor", width="medium"),
+            "data_publicacao": st.column_config.TextColumn("Horário", width="small"),
+            "url": st.column_config.LinkColumn(
+                "Link", 
+                display_text="Ler Agora", 
+                help="Clique para abrir a matéria original",
+                width="small"
+            )
+        }
+    )
+    
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.markdown("###")
