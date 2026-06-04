@@ -11,7 +11,7 @@ st.set_page_config(
     page_icon="📰"
 )
 
-# --- CSS CUSTOMIZADO PARA ESTILIZAÇÃO GERAL ---
+# --- CSS CUSTOMIZADO PARA ESTILIZAÇÃO GERAL E TABELA ULTRA VISÍVEL ---
 st.markdown("""
     <style>
     /* Ajuste de cor e fonte da barra lateral */
@@ -22,10 +22,24 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* Estilização da tabela principal */
+    /* --- TURBO NA VISIBILIDADE DA TABELA --- */
+    /* Força o aumento da fonte e espaçamento interno das células */
+    [data-testid="stTable"] td, [data-testid="stDataFrame"] td {
+        font-size: 15px !important;
+        padding: 12px 10px !important;
+    }
+    /* Estilização dos cabeçalhos da tabela */
+    [data-testid="stDataFrame"] th {
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        background-color: #F1F5F9 !important;
+        color: #1E293B !important;
+    }
+    /* Borda arredondada externa na tabela */
     .stDataFrame {
-        border: 1px solid #eef0f5;
+        border: 1px solid #CBD5E1;
         border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
     }
     
     /* Customização do botão de download */
@@ -34,7 +48,8 @@ st.markdown("""
         background-color: #4F46E5;
         color: white;
         border: none;
-        padding: 6px 16px;
+        padding: 8px 20px;
+        font-weight: 600;
     }
     .stDownloadButton button:hover {
         background-color: #4338CA;
@@ -126,18 +141,16 @@ with st.sidebar:
         st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=450)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v1.5 • Atualizado via GitHub Actions")
+    st.caption("v1.6 • Atualizado via GitHub Actions")
 
 # -------------------
-# MÉTRICAS CUSTOMIZADAS (LÓGICA SEM ERROS)
+# MÉTRICAS CUSTOMIZADAS
 # -------------------
 total = len(df)
 contagem = df["veiculo"].value_counts()
 
-# Criamos as colunas nativas do Streamlit para organizar os cards lado a lado
 c_tot, c_est, c_fol, c_uol, c_out = st.columns(5)
 
-# Injetamos pequenos blocos de HTML independentes dentro de cada coluna nativa
 with c_tot:
     st.html(f"""
         <div style="background-color: #4F46E5; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #4F46E5; min-height: 95px;">
@@ -204,7 +217,7 @@ if not df.empty:
         df = df[df["autor"].isin(autores)]
 
 # -------------------
-# TABELA PRINCIPAL EXPANDIDA
+# TABELA PRINCIPAL EXPANDIDA SUPER VISÍVEL
 # -------------------
 st.subheader("📋 Clipping de Notícias")
 
@@ -213,7 +226,7 @@ if not df.empty:
         df[["veiculo", "titulo", "autor", "url", "data_publicacao"]],
         use_container_width=True,
         hide_index=True,
-        height=620,
+        height=750,  # Expandido para 750px (cabe muito mais notícia!)
         column_config={
             "veiculo": st.column_config.TextColumn("Fonte", width="small"),
             "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
