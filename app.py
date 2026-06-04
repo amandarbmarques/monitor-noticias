@@ -1,5 +1,5 @@
-import streamlit as st
-import pandas as pd
+import streamlit st
+import pandas pd
 import sqlite3
 
 # -------------------
@@ -68,11 +68,10 @@ except:
     df = pd.DataFrame(columns=["veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 # -------------------
-# Tratamento de Dados Blindado (Sem travar o app)
+# Tratamento de Dados Blindado
 # -------------------
 if not df.empty:
     try:
-        # Conversão direta e segura para texto formatado
         df['data_publicacao'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
         df['data_publicacao'] = df['data_publicacao'].dt.strftime('%d/%m/%Y %H:%M')
     except:
@@ -138,7 +137,7 @@ with st.sidebar:
         st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=450)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v1.8 • Atualizado via GitHub Actions")
+    st.caption("v1.9 • Atualizado via GitHub Actions")
 
 # -------------------
 # MÉTRICAS CUSTOMIZADAS
@@ -205,7 +204,7 @@ with st.expander("🔍 Ferramentas de Filtro e Busca", expanded=True):
         opcoes_a = sorted(df["autor"].dropna().unique()) if not df.empty else []
         autores = st.multiselect("Filtrar por Autor", options=opcoes_a)
 
-# Aplicação dos filtros selecionados
+# Aplicação dos filtros selecionados (Corrigido os recuos internos)
 if not df.empty:
     if busca:
         df = df[df["titulo"].str.contains(busca, case=False, na=False)]
@@ -215,14 +214,7 @@ if not df.empty:
         df = df[df["autor"].isin(autores)]
 
 # -------------------
-# TABELA PRINCIPAL EXPANDIDA COM PAGINAÇÃO NATIVA
-# -------------------
-st.subheader("📋 Clipping de Notícias")
-
-if not df.empty:
-    # Removemos o parâmetro height fixo que estava conflitando com a renderização em alguns servidores
-    # -------------------
-# TABELA PRINCIPAL EXPANDIDA (MODO LISTÃO)
+# TABELA PRINCIPAL EXPANDIDA (MODO LISTÃO GRANDE)
 # -------------------
 st.subheader("📋 Clipping de Notícias")
 
@@ -231,7 +223,7 @@ if not df.empty:
         df[["veiculo", "titulo", "autor", "url", "data_publicacao"]],
         use_container_width=True,
         hide_index=True,
-        height=900,  # Altura gigante para listar dezenas de linhas direto na tela!
+        height=900,  # Altura gigante para ver muitas notícias de uma vez só!
         column_config={
             "veiculo": st.column_config.TextColumn("Fonte", width="small"),
             "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
@@ -251,6 +243,3 @@ if not df.empty:
     st.download_button("📥 Exportar Clipping para Excel/CSV", csv, "clipping_noticias.csv", "text/csv")
 else:
     st.info("Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio.")
-    
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.markdown("###")
