@@ -1,5 +1,5 @@
-import streamlit st
-import pandas pd
+import streamlit as st
+import pandas as pd
 import sqlite3
 
 # -------------------
