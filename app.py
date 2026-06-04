@@ -141,7 +141,7 @@ with st.sidebar:
         st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=450)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v1.6 • Atualizado via GitHub Actions")
+    st.caption("v1.7 • Atualizado via GitHub Actions")
 
 # -------------------
 # MÉTRICAS CUSTOMIZADAS
@@ -208,40 +208,4 @@ with st.expander("🔍 Ferramentas de Filtro e Busca", expanded=True):
         opcoes_a = sorted(df["autor"].dropna().unique()) if not df.empty else []
         autores = st.multiselect("Filtrar por Autor", options=opcoes_a)
 
-# Aplicação dos filtros selecionados
-if not df.empty:
-    if busca:
-        df = df[df["titulo"].str.contains(busca, case=False, na=False)]
-    df = df[df["veiculo"].isin(veiculos)]
-    if autores:
-        df = df[df["autor"].isin(autores)]
-
-# -------------------
-# TABELA PRINCIPAL EXPANDIDA SUPER VISÍVEL
-# -------------------
-st.subheader("📋 Clipping de Notícias")
-
-if not df.empty:
-    st.dataframe(
-        df[["veiculo", "titulo", "autor", "url", "data_publicacao"]],
-        use_container_width=True,
-        hide_index=True,
-        height=750,  # Expandido para 750px (cabe muito mais notícia!)
-        column_config={
-            "veiculo": st.column_config.TextColumn("Fonte", width="small"),
-            "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
-            "autor": st.column_config.TextColumn("Autor", width="medium"),
-            "data_publicacao": st.column_config.TextColumn("Horário", width="small"),
-            "url": st.column_config.LinkColumn(
-                "Link", 
-                display_text="Ler Agora", 
-                help="Clique para abrir a matéria original",
-                width="small"
-            )
-        }
-    )
-    
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.download_button("📥 Exportar Clipping para Excel/CSV", csv, "clipping_noticias.csv", "text/csv")
-else:
-    st.warning("Nenhum dado encontrado para os filtros aplicados.")
+# Aplicação dos filtros
