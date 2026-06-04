@@ -221,10 +221,17 @@ st.subheader("📋 Clipping de Notícias")
 
 if not df.empty:
     # Removemos o parâmetro height fixo que estava conflitando com a renderização em alguns servidores
+    # -------------------
+# TABELA PRINCIPAL EXPANDIDA (MODO LISTÃO)
+# -------------------
+st.subheader("📋 Clipping de Notícias")
+
+if not df.empty:
     st.dataframe(
         df[["veiculo", "titulo", "autor", "url", "data_publicacao"]],
         use_container_width=True,
         hide_index=True,
+        height=900,  # Altura gigante para listar dezenas de linhas direto na tela!
         column_config={
             "veiculo": st.column_config.TextColumn("Fonte", width="small"),
             "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
@@ -238,6 +245,12 @@ if not df.empty:
             )
         }
     )
+    
+    csv = df.to_csv(index=False).encode("utf-8")
+    st.markdown("###")
+    st.download_button("📥 Exportar Clipping para Excel/CSV", csv, "clipping_noticias.csv", "text/csv")
+else:
+    st.info("Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio.")
     
     csv = df.to_csv(index=False).encode("utf-8")
     st.markdown("###")
