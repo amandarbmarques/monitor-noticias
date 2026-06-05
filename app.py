@@ -43,54 +43,24 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # -------------------
-# 1. CARREGA DADOS E FILTRA ÚLTIMOS 5 DIAS
-# -------------------
-try:
-    with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
-        df = pd.read_sql("SELECT * FROM noticias", conn)
-except:
-    df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
-
-if not df.empty:
-    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
-    
-    # 1. Ajuste de Fuso Horário
-    try:
-        if df['data_publicacao_dt'].dt.tz is None:
-            df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize('UTC').dt.tz_convert('America/Sao_Paulo')
-        else:
-            df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
-    except:
-        df['data_publicacao_dt'] = df['data_publicacao_dt'] - pd.Timedelta(hours=3)
-
-    # 2. Corte dos últimos 5 dias
-    agora = pd.Timestamp.now(tz='America/Sao_Paulo')
-    limite_5_dias = agora - pd.Timedelta(days=30)
-    df = df[df['data_publicacao_dt'] >= limite_30_dias].copy()
-
-# -------------------
-# 🥇 PRIORIDADE 2: INDICADOR DE FUROS (COM CACHE)
+# FUNÇÕES DE APOIO
 # -------------------
 def limpar_titulo(titulo):
     titulo = str(titulo).lower()
     titulo = re.sub(r'[^a-zà-ú0-9 ]', '', titulo)
     return titulo
 
+# Cache blindado: Recebe o DF já tratado e calcula apenas os furos
 @st.cache_data(ttl=300)
-def processar_furos(df_temp):
-    if df_temp.empty:
-        df_temp['furo'] = []
-        return df_temp
-        
-    df_temp = df_temp.sort_values(by='data_publicacao_dt', ascending=True).reset_index(drop=True)
-    
+def calcular_furos_reais(df_cronologico):
     pautas_vistas = []
     status_furo = []
     
-    for idx, row in df_temp.iterrows():
+    for idx, row in df_cronologico.iterrows():
         tit_limpo = limpar_titulo(row['titulo'])
         matched = False
         
+        # Janela das últimas 150 matérias para o fuzz ratio
         for pauta in reversed(pautas_vistas[-150:]):
             if fuzz.ratio(tit_limpo, pauta['titulo_limpo']) > 80:
                 matched = True
@@ -107,22 +77,11 @@ def processar_furos(df_temp):
                 'veiculo': row['veiculo']
             })
             
-    df_temp['furo'] = status_furo
-    return df_temp
+    df_cronologico['furo'] = status_furo
+    return df_cronologico
 
-if not df.empty:
-    df = processar_furos(df)
-    df = df.sort_values(by='data_publicacao_dt', ascending=False).reset_index(drop=True)
-    df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
-else:
-    df['furo'] = []
-
-# -------------------
-# 📊 PRIORIDADE 1: CLASSIFICAÇÃO AUTOMÁTICA DE TEMAS
-# -------------------
 def classificar_tema(titulo):
     titulo_lower = str(titulo).lower()
-    
     regras = {
         "⚖️ Judiciário/STF": ["stf", "supremo", "julga", "justiça", "moraes", "tse", "liminar", "tribunal", "ministro do stf", "pauta jurídica"],
         "🏛️ Política": ["lula", "governo", "planalto", "congresso", "senado", "câmara", "ministros", "bolsa família", "partido", "eleição", "votação", "pec"],
@@ -130,18 +89,55 @@ def classificar_tema(titulo):
         "⚽ Esportes": ["corinthians", "flamengo", "palmeiras", "futebol", "tite", "neymar", "libertadores", "brasileirão", "contrata", "negocia"],
         "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
     }
-    
-    # CORRIGIDO DEFINITIVO: de 'reglas' para 'regras'
     for tema, palavras in regras.items():
         if any(palavra in titulo_lower for palavra in palavras):
             return tema
-            
     return "📰 Geral"
 
+# -------------------
+# 1. PROCESSAMENTO DOS DADOS (BLINDADO CONTRA NAMEERROR)
+# -------------------
+try:
+    with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
+        df = pd.read_sql("SELECT * FROM noticias", conn)
+except:
+    df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
+
 if not df.empty:
-    df["tema"] = df["titulo"].apply(classificar_tema)
+    # 1. Ajuste de fuso horário inicial
+    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
+    try:
+        if df['data_publicacao_dt'].dt.tz is None:
+            df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize('UTC').dt.tz_convert('America/Sao_Paulo')
+        else:
+            df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
+    except:
+        df['data_publicacao_dt'] = df['data_publicacao_dt'] - pd.Timedelta(hours=3)
+
+    # 2. Janela estendida para 30 dias para recuperar os portais sumidos
+    agora = pd.Timestamp.now(tz='America/Sao_Paulo')
+    limite_tempo = agora - pd.Timedelta(days=30)
+    df = df[df['data_publicacao_dt'] >= limite_tempo].copy()
+
+    if not df.empty:
+        # Ordena do mais antigo para o mais novo antes do cálculo
+        df = df.sort_values(by='data_publicacao_dt', ascending=True).reset_index(drop=True)
+        
+        # Chama a função do cache de furos com segurança
+        df = calcular_furos_reais(df)
+        
+        # Classifica os temas
+        df["tema"] = df["titulo"].apply(classificar_tema)
+        
+        # Inverte a ordem para visualização (mais recentes no topo) e formata data
+        df = df.sort_values(by='data_publicacao_dt', ascending=False).reset_index(drop=True)
+        df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
+    else:
+        df['furo'] = []
+        df['tema'] = []
 else:
-    df["tema"] = []
+    df['furo'] = []
+    df['tema'] = []
 
 # -------------------
 # 2. HEADER CUSTOMIZADO
@@ -163,7 +159,7 @@ else:
 col_tit, col_stat = st.columns([4, 1])
 
 with col_tit:
-    titulo_html = '<h1>Monitor de <span style="color:#4F46E5;">Notícias</span></h1><p style="color:#64748B;font-size:16px;margin-top:-10px;">Análise e clipping competitivo (Últimos 5 Dias).</p>'
+    titulo_html = '<h1>Monitor de <span style="color:#4F46E5;">Notícias</span></h1><p style="color:#64748B;font-size:16px;margin-top:-10px;">Análise e clipping competitivo em tempo real.</p>'
     st.markdown(titulo_html, unsafe_allow_html=True)
 
 with col_stat:
@@ -186,10 +182,10 @@ with col_stat:
 st.markdown("---")
 
 # -------------------
-# 📊 6. DASHBOARD DE ASSUNTOS
+# 📊 DASHBOARD DE ASSUNTOS
 # -------------------
 if not df.empty:
-    st.markdown("### 📊 Temas Mais Cobertos (5 Dias)")
+    st.markdown("### 📊 Temas Mais Cobertos")
     contagem_temas = df["tema"].value_counts()
     
     cols_temas = st.columns(len(contagem_temas))
@@ -221,7 +217,7 @@ with st.sidebar:
         st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=250)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v5.2 • Corrigido Varável Temas")
+    st.caption("v5.3 • Estabilidade Total")
 
 # -------------------
 # FILTROS E BUSCA
