@@ -1,8 +1,8 @@
 import psycopg2
 from datetime import datetime
 
-# URL CORRIGIDA DE ACORDO COM A NOVA INFRAESTRUTURA DO SUPABASE
-DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
+# CONEXÃO DIRETA SEM POOLER - Porta padrão 5432 homologada com SSL
+DB_URI = "postgresql://postgres:23062011Cf!!04@db.hhfttkctypcgrdwvnhug.supabase.co:5432/postgres?sslmode=require&connect_timeout=10"
 
 def get_connection():
     """Retorna uma conexão limpa com o banco de dados Supabase"""
