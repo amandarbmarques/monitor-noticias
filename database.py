@@ -1,15 +1,12 @@
 import psycopg2
-from datetime import datetime
 
-# CONEXÃO DIRETA SEM POOLER - Porta padrão 5432 homologada com SSL
-DB_URI = "postgresql://postgres:23062011Cf!!04@db.hhfttkctypcgrdwvnhug.supabase.co:5432/postgres?sslmode=require&connect_timeout=10"
+# URL EXATA DO SEU SERVIDOR NOS EUA (COM SENHA CODIFICADA PARA NÃO QUEBRAR O LINK)
+DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
 
 def get_connection():
-    """Retorna uma conexão limpa com o banco de dados Supabase"""
     return psycopg2.connect(DB_URI)
 
 def create_table():
-    """Cria a tabela de notícias na nuvem se ela não existir"""
     query = """
     CREATE TABLE IF NOT EXISTS noticias (
         id SERIAL PRIMARY KEY,
@@ -31,7 +28,6 @@ def create_table():
         print(f"❌ Erro ao criar tabela no Supabase: {e}")
 
 def insert_news(noticia):
-    """Insere uma única notícia no Supabase, ignorando duplicadas pelo título"""
     query = """
     INSERT INTO noticias (veiculo, titulo, autor, url, data_publicacao, data_coleta)
     VALUES (%s, %s, %s, %s, %s, %s)
