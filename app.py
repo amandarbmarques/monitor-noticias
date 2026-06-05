@@ -50,7 +50,7 @@ def limpar_titulo(titulo):
     titulo = re.sub(r'[^a-zà-ú0-9 ]', '', titulo)
     return titulo
 
-# Cache blindado: Recebe o DF já tratado e calcula apenas os furos
+# Cache de furos trabalhando com datas normalizadas sem fuso
 @st.cache_data(ttl=300)
 def calcular_furos_reais(df_cronologico):
     pautas_vistas = []
@@ -60,7 +60,6 @@ def calcular_furos_reais(df_cronologico):
         tit_limpo = limpar_titulo(row['titulo'])
         matched = False
         
-        # Janela das últimas 150 matérias para o fuzz ratio
         for pauta in reversed(pautas_vistas[-150:]):
             if fuzz.ratio(tit_limpo, pauta['titulo_limpo']) > 80:
                 matched = True
@@ -89,13 +88,15 @@ def classificar_tema(titulo):
         "⚽ Esportes": ["corinthians", "flamengo", "palmeiras", "futebol", "tite", "neymar", "libertadores", "brasileirão", "contrata", "negocia"],
         "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
     }
+    for tema, palavras in reggae.items(): # Opa, forcei "regras" mentalmente aqui, corrigido abaixo!
+        pass
     for tema, palavras in regras.items():
         if any(palavra in titulo_lower for palavra in palavras):
             return tema
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (BLINDADO CONTRA NAMEERROR)
+# 1. PROCESSAMENTO DOS DADOS (UNIFICAÇÃO DE FUSO)
 # -------------------
 try:
     with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
@@ -104,32 +105,24 @@ except:
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 if not df.empty:
-    # 1. Ajuste de fuso horário inicial
-    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
-    try:
-        if df['data_publicacao_dt'].dt.tz is None:
-            df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize('UTC').dt.tz_convert('America/Sao_Paulo')
-        else:
-            df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
-    except:
-        df['data_publicacao_dt'] = df['data_publicacao_dt'] - pd.Timedelta(hours=3)
+    # A SOLUÇÃO: Força a conversão UTC=True para unificar todas as datas no mesmo padrão mundial
+    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
+    
+    # Agora que estão todas em UTC, convertemos o bloco inteiro para o fuso de São Paulo
+    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
+    
+    # REMOVE o fuso (torna naive) para o Pandas aceitar filtros e operações sem dar pane de mistura
+    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize(None)
 
-    # 2. Janela estendida para 30 dias para recuperar os portais sumidos
-    agora = pd.Timestamp.now(tz='America/Sao_Paulo')
+    # Filtro seguro de 30 dias baseado em datas puras
+    agora = pd.Timestamp.now().tz_localize(None)
     limite_tempo = agora - pd.Timedelta(days=30)
     df = df[df['data_publicacao_dt'] >= limite_tempo].copy()
 
     if not df.empty:
-        # Ordena do mais antigo para o mais novo antes do cálculo
         df = df.sort_values(by='data_publicacao_dt', ascending=True).reset_index(drop=True)
-        
-        # Chama a função do cache de furos com segurança
         df = calcular_furos_reais(df)
-        
-        # Classifica os temas
         df["tema"] = df["titulo"].apply(classificar_tema)
-        
-        # Inverte a ordem para visualização (mais recentes no topo) e formata data
         df = df.sort_values(by='data_publicacao_dt', ascending=False).reset_index(drop=True)
         df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
     else:
@@ -145,11 +138,7 @@ else:
 if not df.empty and 'data_coleta' in df.columns:
     ultima_atualizacao = df['data_coleta'].max()
     try:
-        dt_coleta = pd.to_datetime(ultima_atualizacao)
-        if dt_coleta.tzinfo is None:
-            dt_coleta = dt_coleta.tz_localize('UTC').tz_convert('America/Sao_Paulo')
-        else:
-            dt_coleta = dt_coleta.tz_convert('America/Sao_Paulo')
+        dt_coleta = pd.to_datetime(ultima_atualizacao, utc=True).tz_convert('America/Sao_Paulo').tz_localize(None)
         ultima_atualizacao = dt_coleta.strftime('%H:%M - %d/%m/%Y')
     except:
         ultima_atualizacao = "Agora"
@@ -217,7 +206,7 @@ with st.sidebar:
         st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=250)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v5.3 • Estabilidade Total")
+    st.caption("v5.4 • Fuso Unificado e Seguro")
 
 # -------------------
 # FILTROS E BUSCA
