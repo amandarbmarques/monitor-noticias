@@ -1,5 +1,6 @@
 import psycopg2
 
+# URL EXATA DO SEU SERVIDOR NOS EUA (COM SENHA CODIFICADA)
 DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
 
 def get_connection():
@@ -28,7 +29,6 @@ def create_table():
     except Exception as e:
         print(f"❌ Erro ao criar tabela: {e}")
     finally:
-        # A MÁGICA ESTÁ AQUI: Garante que a porta será fechada
         if conn is not None:
             conn.close()
 
@@ -55,9 +55,10 @@ def insert_news(noticia):
     except Exception as e:
         print(f"❌ Erro ao inserir: {e}")
     finally:
-        # A MÁGICA ESTÁ AQUI: Garante que a porta será fechada
+        if conn is not None:
+            conn.close()
 
-        def insert_many_news(lista_noticias):
+def insert_many_news(lista_noticias):
     """Insere várias notícias no banco em uma única viagem (conexão única)"""
     if not lista_noticias:
         return
@@ -73,7 +74,6 @@ def insert_news(noticia):
         conn = get_connection()
         cursor = conn.cursor()
         
-        # O caminhão descarregando tudo de uma vez
         for noticia in lista_noticias:
             cursor.execute(query, (
                 noticia["veiculo"],
@@ -84,13 +84,5 @@ def insert_news(noticia):
                 noticia["data_coleta"]
             ))
             
-        conn.commit() # Salva tudo
+        conn.commit()
         cursor.close()
-        print(f"🚚 SUCESSO REAL: Lote de {len(lista_noticias)} notícias injetadas de uma vez!")
-    except Exception as e:
-        print(f"❌ ERRO REAL: O banco recusou a inserção do lote. Motivo: {e}")
-    finally:
-        if conn is not None:
-            conn.close()
-        if conn is not None:
-            conn.close()
