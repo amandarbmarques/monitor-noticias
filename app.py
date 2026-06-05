@@ -51,3 +51,21 @@ except:
 
 # -------------------
 # Tratamento de Dados Blindado
+# -------------------
+if not df.empty:
+    try:
+        df['data_publicacao'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
+        df['data_publicacao'] = df['data_publicacao'].dt.strftime('%d/%m/%Y %H:%M')
+    except:
+        pass
+
+# -------------------
+# 📊 PRIORIDADE 1: CLASSIFICAÇÃO AUTOMÁTICA DE TEMAS
+# -------------------
+def classificar_tema(titulo):
+    titulo_lower = str(titulo).lower()
+    
+    regras = {
+        "⚖️ Judiciário/STF": ["stf", "supremo", "julga", "justiça", "moraes", "tse", "liminar", "tribunal", "ministro do stf", "pauta jurídica"],
+        "🏛️ Política": ["lula", "governo", "planalto", "congresso", "senado", "câmara", "ministros", "bolsa família", "partido", "eleição", "votação", "pec"],
+        "💰 Economia":
