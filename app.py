@@ -66,31 +66,41 @@ df = carregar_dados()
 # 3. PROCESSAMENTO DA BASE
 # ==========================================
 if not df.empty:
-    # Tenta transformar a data de publicação, mas SEM deletar quem falhar!
-    df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
+    # 1. Tenta converter usando o formato oficial de feeds RSS (Google News)
+    df['data_dt'] = pd.to_datetime(
+        df['data_publicacao'], 
+        format='%a, %d %b %Y %H:%M:%S %Z', 
+        errors='coerce', 
+        utc=True
+    )
     
-    # Se a data do jornal falhar (ficar vazia/NaT), usamos a data que o robô fez a coleta!
+    # 2. Se falhar (ex: formato da Folha que é ISO), tenta a conversão padrão automática
+    df['data_dt'] = df['data_dt'].fillna(
+        pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
+    )
+    
+    # 3. Plano de emergência: se ainda assim falhar, usa a data da coleta
     if 'data_coleta' in df.columns:
         coleta_segura = pd.to_datetime(df['data_coleta'], errors='coerce', utc=True)
         df['data_dt'] = df['data_dt'].fillna(coleta_segura)
         
-    # Se por algum milagre tudo falhar, coloca o horário de agora para não quebrar a tela
+    # 4. Garante que ninguém fique sem data
     df['data_dt'] = df['data_dt'].fillna(pd.Timestamp.now(tz='UTC'))
     
-    # Agora sim, converte todo mundo para Brasília com segurança
+    # 5. Converte para o fuso de Brasília
     df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
     
-    # Cria a coluna visual bonita no padrão brasileiro
+    # 6. Cria a coluna visual bonita no padrão brasileiro
     df['data_formatada'] = df['data_dt'].dt.strftime('%d/%m/%Y %H:%M')
 
     df["tema"] = df["titulo"].apply(classificar_tema)
     
-    # Calcula os furos
+    # Calcula os furos com base na linha do tempo real
     df = calcular_furos_reais(df)
     
-    # Ordena as mais recentes no topo
+    # Ordena o painel trazendo o que acabou de acontecer para o topo
     df = df.sort_values(by='data_dt', ascending=False).reset_index(drop=True)
-
+    
     # ==========================================
     # 4. BARRA LATERAL (FILTROS)
     # ==========================================
