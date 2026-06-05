@@ -319,6 +319,22 @@ if not df.empty:
 
     st.markdown("---")
 
+    # Controle do estado anterior
+if "ultimo_estado_selecionar_todas" not in st.session_state:
+    st.session_state.ultimo_estado_selecionar_todas = False
+
+selecionar_tudo = st.checkbox(
+    "Selecionar todas as notícias exibidas",
+    key="selecionar_todas"
+)
+
+# Só executa quando o checkbox muda
+if selecionar_tudo != st.session_state.ultimo_estado_selecionar_todas:
+
+    df_exibicao["Selecionar"] = selecionar_tudo
+
+    st.session_state.ultimo_estado_selecionar_todas = selecionar_tudo
+    
     # -------------------
     # TABELA
     # -------------------
