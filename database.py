@@ -1,64 +1,54 @@
-import sqlite3
+import psycopg2
+from psycopg2.extras import execute_values
+from datetime import datetime
 
-DB_NAME = "noticias.db"
-
+# URL de conexão direta com o seu Supabase
+DB_URI = "postgresql://postgres:23062011Cf!!04@db.hhfttkctypcgrdwvnhug.supabase.co:5432/postgres"
 
 def get_connection():
-    return sqlite3.connect(DB_NAME)
-
+    """Retorna uma conexão limpa com o banco de dados Supabase"""
+    return psycopg2.connect(DB_URI)
 
 def create_table():
-    conn = get_connection()
-
-    conn.execute("""
+    """Cria a tabela de notícias na nuvem se ela não existir"""
+    query = """
     CREATE TABLE IF NOT EXISTS noticias (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        veiculo TEXT,
-        titulo TEXT,
-        autor TEXT,
-        url TEXT UNIQUE,
-        data_publicacao TEXT,
-        data_coleta TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-
-def insert_news(item):
-
-    conn = get_connection()
-
+        id SERIAL PRIMARY KEY,
+        veiculo VARCHAR(100),
+        titulo TEXT UNIQUE,
+        autor VARCHAR(255),
+        url TEXT,
+        data_publicacao VARCHAR(100),
+        data_coleta VARCHAR(100)
+    );
+    """
     try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query)
+                conn.commit()
+        print("✅ Tabela 'noticias' verificada/criada no Supabase com sucesso!")
+    except Exception as e:
+        print(f"❌ Erro ao criar tabela no Supabase: {e}")
 
-        conn.execute(
-            """
-            INSERT INTO noticias
-            (
-                veiculo,
-                titulo,
-                autor,
-                url,
-                data_publicacao,
-                data_coleta
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                item["veiculo"],
-                item["titulo"],
-                item["autor"],
-                item["url"],
-                item["data_publicacao"],
-                item["data_coleta"]
-            )
-        )
-
-        conn.commit()
-
-    except sqlite3.IntegrityError:
-        pass
-
-    finally:
-        conn.close()
+def insert_news(noticia):
+    """Insere uma única notícia no Supabase, ignorando duplicadas pelo título"""
+    query = """
+    INSERT INTO noticias (veiculo, titulo, autor, url, data_publicacao, data_coleta)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    ON CONFLICT (titulo) DO NOTHING;
+    """
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, (
+                    noticia["veiculo"],
+                    noticia["titulo"],
+                    noticia["autor"],
+                    noticia["url"],
+                    noticia["data_publicacao"],
+                    noticia["data_coleta"]
+                ))
+                conn.commit()
+    except Exception as e:
+        print(f"❌ Erro ao inserir notícia no Supabase: {e}")
