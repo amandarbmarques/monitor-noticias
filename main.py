@@ -7,31 +7,56 @@ from uol import coletar_uol
 from cnn import coletar_cnn
 from jota import coletar_jota
 
-
 def main():
     create_table()
 
-    print("Coletando Folha...")
-    coletar_folha()
+    # --- COLETA DA FOLHA ---
+    try:
+        print("Coletando Folha...")
+        coletar_folha()
+    except Exception as e:
+        print(f"❌ Erro ao coletar a Folha: {e}")
 
-    print("Coletando Estadão...")
-    coletar_estadao()
+    # --- COLETA DO ESTADÃO ---
+    try:
+        print("Coletando Estadão...")
+        coletar_estadao()
+    except Exception as e:
+        print(f"❌ Erro ao coletar o Estadão: {e}")
 
-    print("Coletando UOL...")
-    coletar_uol()
+    # --- COLETA DO UOL ---
+    try:
+        print("Coletando UOL...")
+        coletar_uol()
+    except Exception as e:
+        print(f"❌ Erro ao coletar o UOL: {e}")
 
-    print("Coletando CNN Brasil...")
-    coletar_cnn()
+    # --- COLETA DA CNN BRASIL ---
+    try:
+        print("Coletando CNN Brasil...")
+        coletar_cnn()
+    except Exception as e:
+        print(f"❌ Erro ao coletar a CNN Brasil: {e}")
 
-    print("Coletando JOTA...")
-    coletar_jota()
+    # --- COLETA DO JOTA ---
+    try:
+        print("Coletando JOTA...")
+        coletar_jota()
+    except Exception as e:
+        print(f"❌ Erro ao coletar o JOTA: {e}")
 
-    print("Coletando Poder360...")
-    for item in poder360_news():
-        insert_news(item)
+    # --- COLETA DO PODER360 ---
+    try:
+        print("Coletando Poder360...")
+        for item in poder360_news():
+            try:
+                insert_news(item)
+            except Exception as e:
+                print(f"❌ Erro ao inserir notícia do Poder360: {e}")
+    except Exception as e:
+        print(f"❌ Erro geral ao coletar o Poder360: {e}")
 
-    print("Finalizado!")
-
+    print("🏁 Processo de automação finalizado!")
 
 if __name__ == "__main__":
     main()
