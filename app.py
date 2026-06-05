@@ -96,41 +96,19 @@ def classificar_tema(titulo):
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (AGORA CONECTADO AO SUPABASE!)
+# 1. PROCESSAMENTO DOS DADOS (SUPABASE VIA CONNECTION POOLING)
 # -------------------
-import psycopg2  # Certifique-se de manter os imports no topo se preferir
+import psycopg2
 
 try:
-    # URL de conexão com o Supabase
-    DB_URI = "postgresql://postgres:23062011Cf!!04@db.hhfttkctypcgrdwvnhug.supabase.co:5432/postgres"
+    # URL idêntica corrigida para a porta 6543 com SSL forçado
+    DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
     
-    # Conecta e puxa os dados da nuvem
     with psycopg2.connect(DB_URI) as conn:
         df = pd.read_sql("SELECT * FROM noticias", conn)
 except Exception as e:
     st.error(f"Erro ao conectar ao banco na nuvem: {e}")
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
-
-# Daqui para baixo o código de fuso e de 5 dias que já estava no seu app.py continua IGUAL!
-if not df.empty:
-    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
-    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
-    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize(None)
-# ... restante do código do app.py
-# -------------------
-# 📊 DASHBOARD DE ASSUNTOS
-# -------------------
-if not df.empty:
-    st.markdown("### 📊 Temas Mais Cobertos")
-    contagem_temas = df["tema"].value_counts()
-    
-    cols_temas = st.columns(len(contagem_temas))
-    for idx, (tema, qtd) in enumerate(contagem_temas.items()):
-        with cols_temas[idx]:
-            card_tema = '<div style="background-color: #FFFFFF; padding: 12px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); border: 1px solid #E2E8F0; text-align: center;"><p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 600;">' + tema + '</p><h4 style="margin: 5px 0 0 0; font-size: 22px; color: #1E293B; font-weight: 700;">' + str(qtd) + '</h4></div>'
-            st.markdown(card_tema, unsafe_allow_html=True)
-    st.markdown("###")
-
 # -------------------
 # BARRA LATERAL (Placares)
 # -------------------
