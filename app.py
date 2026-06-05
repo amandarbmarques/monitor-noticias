@@ -213,7 +213,6 @@ if not df.empty:
     if autores:
         df = df[df["autor"].isin(autores)]
 
-```python
 # -------------------
 # TABELA PRINCIPAL COM SELEÇÃO E EXPORTAÇÃO
 # -------------------
