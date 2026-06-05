@@ -224,12 +224,16 @@ if not df.empty:
         ["veiculo", "titulo", "autor", "url", "data_publicacao"]
     ].copy()
 
-    # Inicialização do estado
+    # Estado persistente das seleções
     if "selecoes_noticias" not in st.session_state:
         st.session_state.selecoes_noticias = [False] * len(df_exibicao)
 
     if len(st.session_state.selecoes_noticias) != len(df_exibicao):
         st.session_state.selecoes_noticias = [False] * len(df_exibicao)
+
+    # Estado do checkbox mestre
+    if "selecionar_tudo" not in st.session_state:
+        st.session_state.selecionar_tudo = False
 
     df_exibicao.insert(
         0,
@@ -237,15 +241,31 @@ if not df.empty:
         st.session_state.selecoes_noticias
     )
 
-    # Checkbox mestre
+    # -------------------
+    # CONTROLES
+    # -------------------
+
     selecionar_tudo = st.checkbox(
-        "Selecionar todas as notícias exibidas"
+        "Selecionar todas as notícias exibidas",
+        key="selecionar_tudo"
     )
 
+    # Marca ou desmarca tudo
     if selecionar_tudo:
         df_exibicao["Selecionar"] = True
+    else:
+        df_exibicao["Selecionar"] = False
 
-    # Botões de exportação
+    qtd_selecionadas = int(df_exibicao["Selecionar"].sum())
+
+    st.markdown(
+        f"**📰 {qtd_selecionadas} notícia(s) selecionada(s)**"
+    )
+
+    # -------------------
+    # EXPORTAÇÃO
+    # -------------------
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -266,11 +286,41 @@ if not df.empty:
 
     with col2:
 
-        st.empty()
+        selecionadas_df = df_exibicao[
+            df_exibicao["Selecionar"] == True
+        ]
+
+        if len(selecionadas_df) > 0:
+
+            csv_sel = (
+                selecionadas_df
+                .drop(columns=["Selecionar"])
+                .to_csv(index=False)
+                .encode("utf-8")
+            )
+
+            st.download_button(
+                f"✅ Exportar {len(selecionadas_df)} Selecionadas",
+                csv_sel,
+                "noticias_selecionadas.csv",
+                "text/csv",
+                use_container_width=True
+            )
+
+        else:
+
+            st.button(
+                "✅ Exportar Selecionadas",
+                disabled=True,
+                use_container_width=True
+            )
 
     st.markdown("---")
 
-    # Tabela editável
+    # -------------------
+    # TABELA
+    # -------------------
+
     edited_df = st.data_editor(
         df_exibicao,
         use_container_width=True,
@@ -278,14 +328,23 @@ if not df.empty:
         height=900,
         key="editor_noticias",
         column_config={
-            "Selecionar": st.column_config.CheckboxColumn("✓"),
-            "veiculo": st.column_config.TextColumn("Fonte"),
+            "Selecionar": st.column_config.CheckboxColumn(
+                "✓",
+                help="Selecione notícias para exportação"
+            ),
+            "veiculo": st.column_config.TextColumn(
+                "Fonte"
+            ),
             "titulo": st.column_config.TextColumn(
                 "Notícia (Título)",
                 width="large"
             ),
-            "autor": st.column_config.TextColumn("Autor"),
-            "data_publicacao": st.column_config.TextColumn("Horário"),
+            "autor": st.column_config.TextColumn(
+                "Autor"
+            ),
+            "data_publicacao": st.column_config.TextColumn(
+                "Horário"
+            ),
             "url": st.column_config.LinkColumn(
                 "Link",
                 display_text="Ler Agora"
@@ -296,27 +355,6 @@ if not df.empty:
     st.session_state.selecoes_noticias = (
         edited_df["Selecionar"].tolist()
     )
-
-    selecionadas_df = edited_df[
-        edited_df["Selecionar"] == True
-    ]
-
-    if len(selecionadas_df) > 0:
-
-        csv_sel = (
-            selecionadas_df
-            .drop(columns=["Selecionar"])
-            .to_csv(index=False)
-            .encode("utf-8")
-        )
-
-        st.download_button(
-            f"✅ Exportar {len(selecionadas_df)} Selecionadas",
-            csv_sel,
-            "noticias_selecionadas.csv",
-            "text/csv",
-            use_container_width=True
-        )
 
 else:
 
