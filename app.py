@@ -73,13 +73,14 @@ def classificar_tema(titulo):
         "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
     }
     
-    for tema, palavras in reggae.items():
+    # CORREÇÃO DEFINITIVA DA LINHA 76: 'regras' em vez de 'reggae'
+    for tema, palavras in regras.items():
         if any(palavra in titulo_lower for palavra in palavras):
             return tema
             
     return "📰 Geral"
 
-# Aplicação da função criando a coluna 'tema' (Alinhamento corrigido fora da função)
+# Aplicação da função criando a coluna 'tema'
 if not df.empty:
     df["tema"] = df["titulo"].apply(classificar_tema)
 else:
@@ -95,4 +96,10 @@ if not df.empty and 'data_coleta' in df.columns:
     except:
         ultima_atualizacao = "Agora"
 else:
-    ultima_atual
+    ultima_atualizacao = "--:--"
+
+col_tit, col_stat = st.columns([4, 1])
+
+with col_tit:
+    st.markdown("""
+        <div style="margin-bottom: -1
