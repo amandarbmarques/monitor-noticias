@@ -96,13 +96,13 @@ def classificar_tema(titulo):
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (SUPABASE VIA POOLER CORRIGIDO)
+# 1. PROCESSAMENTO DOS DADOS (SUPABASE CORRIGIDO)
 # -------------------
 import psycopg2
 
 try:
-    # URL oficial idêntica com o parâmetro de usuário correto no final
-    DB_URI = "postgresql://postgres:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?user=postgres.hhfttkctypcgrdwvnhug&sslmode=require"
+    # URL idêntica e direta homologada pelo Supabase
+    DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
     
     with psycopg2.connect(DB_URI) as conn:
         df = pd.read_sql("SELECT * FROM noticias", conn)
