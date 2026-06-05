@@ -66,39 +66,21 @@ df = carregar_dados()
 # 3. PROCESSAMENTO DA BASE
 # ==========================================
 if not df.empty:
-    # 1. Tenta converter usando o formato oficial de feeds RSS (Google News)
-    df['data_dt'] = pd.to_datetime(
-        df['data_publicacao'], 
-        format='%a, %d %b %Y %H:%M:%S %Z', 
-        errors='coerce', 
-        utc=True
-    )
+    # Deixa o Pandas ler o texto bruto livremente (ele é muito inteligente)
+    df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
     
-    # 2. Se falhar (ex: formato da Folha que é ISO), tenta a conversão padrão automática
-    df['data_dt'] = df['data_dt'].fillna(
-        pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
-    )
-    
-    # 3. Plano de emergência: se ainda assim falhar, usa a data da coleta
+    # Plano B: se a data vier corrompida, usa a data da coleta
     if 'data_coleta' in df.columns:
-        coleta_segura = pd.to_datetime(df['data_coleta'], errors='coerce', utc=True)
-        df['data_dt'] = df['data_dt'].fillna(coleta_segura)
+        df['data_dt'] = df['data_dt'].fillna(pd.to_datetime(df['data_coleta'], errors='coerce', utc=True))
         
-    # 4. Garante que ninguém fique sem data
     df['data_dt'] = df['data_dt'].fillna(pd.Timestamp.now(tz='UTC'))
     
-    # 5. Converte para o fuso de Brasília
+    # Converte para Brasília e formata
     df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
-    
-    # 6. Cria a coluna visual bonita no padrão brasileiro
     df['data_formatada'] = df['data_dt'].dt.strftime('%d/%m/%Y %H:%M')
 
     df["tema"] = df["titulo"].apply(classificar_tema)
-    
-    # Calcula os furos com base na linha do tempo real
     df = calcular_furos_reais(df)
-    
-    # Ordena o painel trazendo o que acabou de acontecer para o topo
     df = df.sort_values(by='data_dt', ascending=False).reset_index(drop=True)
     
     # ==========================================
