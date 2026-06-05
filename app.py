@@ -368,4 +368,3 @@ else:
     st.info(
         "Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio."
     )
-```
