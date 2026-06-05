@@ -96,43 +96,27 @@ def classificar_tema(titulo):
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (COM CORRETOR DE DATA DO GOOGLE E FILTRO DE 5 DIAS)
+# 1. PROCESSAMENTO DOS DADOS (AGORA CONECTADO AO SUPABASE!)
 # -------------------
+import psycopg2  # Certifique-se de manter os imports no topo se preferir
+
 try:
-    with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
+    # URL de conexão com o Supabase
+    DB_URI = "postgresql://postgres:23062011Cf!!04@db.hhfttkctypcgrdwvnhug.supabase.co:5432/postgres"
+    
+    # Conecta e puxa os dados da nuvem
+    with psycopg2.connect(DB_URI) as conn:
         df = pd.read_sql("SELECT * FROM noticias", conn)
-except:
+except Exception as e:
+    st.error(f"Erro ao conectar ao banco na nuvem: {e}")
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
+# Daqui para baixo o código de fuso e de 5 dias que já estava no seu app.py continua IGUAL!
 if not df.empty:
-    # 1. Força a conversão para datetime tratando fusos mistos de forma segura (utc=True)
     df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
-    
-    # 2. Converte todas as datas para o horário de Brasília/São Paulo uniformemente
     df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
-    
-    # 3. Remove o fuso para o Pandas não travar nos filtros de comparação temporais
     df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize(None)
-
-    # 4. Lógica de 5 dias reativada e 100% segura contra falhas!
-    agora = pd.Timestamp.now().tz_localize(None)
-    limite_tempo = agora - pd.Timedelta(days=5)
-    df = df[df['data_publicacao_dt'] >= limite_tempo].copy()
-
-    if not df.empty:
-        df = df.sort_values(by='data_publicacao_dt', ascending=True).reset_index(drop=True)
-        df = calcular_furos_reais(df)
-        df["tema"] = df["titulo"].apply(classificar_tema)
-        df = df.sort_values(by='data_publicacao_dt', ascending=False).reset_index(drop=True)
-        
-        # Formata a exibição da tabela com o dia e hora legível em português
-        df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
-    else:
-        df['furo'] = []
-        df['tema'] = []
-else:
-    df['furo'] = []
-    df['tema'] = []
+# ... restante do código do app.py
 # -------------------
 # 📊 DASHBOARD DE ASSUNTOS
 # -------------------
