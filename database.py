@@ -2,8 +2,8 @@ import psycopg2
 from psycopg2.extras import execute_values
 from datetime import datetime
 
-# URL de conexão direta com o seu Supabase
-DB_URI = "postgresql://postgres:23062011Cf!!04@db.hhfttkctypcgrdwvnhug.supabase.co:5432/postgres"
+# URL DO POOLER (Modo Transaction - Porta 6543) para burlar o bloqueio de rede do Streamlit
+DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
 def get_connection():
     """Retorna uma conexão limpa com o banco de dados Supabase"""
