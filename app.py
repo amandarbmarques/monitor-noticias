@@ -23,19 +23,16 @@ st.markdown("""
     }
 
     /* --- TURBO NA VISIBILIDADE DA TABELA --- */
-    /* Força o aumento da fonte e espaçamento interno das células */
     [data-testid="stTable"] td, [data-testid="stDataFrame"] td {
         font-size: 15px !important;
         padding: 12px 10px !important;
     }
-    /* Estilização dos cabeçalhos da tabela */
     [data-testid="stDataFrame"] th {
         font-size: 14px !important;
         font-weight: 700 !important;
         background-color: #F1F5F9 !important;
         color: #1E293B !important;
     }
-    /* Borda arredondada externa na tabela */
     .stDataFrame {
         border: 1px solid #CBD5E1;
         border-radius: 12px;
@@ -65,7 +62,7 @@ try:
     with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
         df = pd.read_sql("SELECT * FROM noticias ORDER BY data_publicacao DESC", conn)
 except:
-    df = pd.DataFrame(columns=["veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
+    df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 # -------------------
 # Tratamento de Dados Blindado
@@ -76,6 +73,32 @@ if not df.empty:
         df['data_publicacao'] = df['data_publicacao'].dt.strftime('%d/%m/%Y %H:%M')
     except:
         pass
+
+# -------------------
+# 📊 PRIORIDADE 1: CLASSIFICAÇÃO AUTOMÁTICA DE TEMAS
+# -------------------
+def classificar_tema(titulo):
+    titulo_lower = str(titulo).lower()
+    
+    # Regras de correspondência por palavras-chave
+    regras = {
+        "⚖️ Judiciário/STF": ["stf", "supremo", "julga", "justiça", "moraes", "tse", "liminar", "tribunal", "ministro do stf", "pauta jurídica"],
+        "🏛️ Política": ["lula", "governo", "planalto", "congresso", "senado", "câmara", "ministros", "bolsa família", "partido", "eleição", "votação", "pec"],
+        "💰 Economia": ["ibovespa", "inflação", "selic", "dólar", "mercado", "petrobras", "banco central", "campos neto", "taxa", "juros", "fazenda", "haddad", "gasto", "iof", "ir", "imposto"],
+        "⚽ Esportes": ["corinthians", "flamengo", "palmeiras", "futebol", "tite", "neymar", "libertadores", "brasileirão", "contrata", "negocia"],
+        "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
+    }
+    
+    for tema, palavras in regras.items():
+        if any(palavra in titulo_lower for palabra in palavras):
+            return tema
+            
+    return "📰 Geral"
+
+if not df.empty:
+    df["tema"] = df["titulo"].apply(classificar_tema)
+else:
+    df["tema"] = []
 
 # -------------------
 # 2. HEADER CUSTOMIZADO
@@ -116,21 +139,53 @@ with col_stat:
         </div>
         
         <style>
-        @keyframes pulse {{
-            0% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }}
-            70% {{ transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }}
-            100% {{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }}
-        }}
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
         </style>
     """, unsafe_allow_html=True)
 
 st.markdown("---")
 
 # -------------------
+# 📊 6. DASHBOARD DE ASSUNTOS (TOP CONTADORES)
+# -------------------
+if not df.empty:
+    st.markdown("### 📊 Temas Mais Cobertos")
+    contagem_temas = df["tema"].value_counts()
+    
+    # Criar colunas para exibir os contadores de temas dinamicamente
+    cols_temas = st.columns(len(contagem_temas))
+    for idx, (tema, qtd) in enumerate(contagem_temas.items()):
+        with cols_temas[idx]:
+            st.markdown(f"""
+                <div style="background-color: #FFFFFF; padding: 12px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); border: 1px solid #E2E8F0; text-align: center;">
+                    <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 600;">{tema}</p>
+                    <h4 style="margin: 5px 0 0 0; font-size: 22px; color: #1E293B; font-weight: 700;">{qtd}</h4>
+                </div>
+            """, unsafe_allow_html=True)
+    st.markdown("###")
+
+# -------------------
+# BARRA LATERAL (Ranking de Autores)
+# -------------------
+with st.sidebar:
+    st.header("✍️ Ranking de Autores")
+    if not df.empty:
+        ranking = df["autor"].value_counts().reset_index()
+        ranking.columns = ["Autor", "Qtd"]
+        st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=350)
+    else:
+        st.write("Nenhum autor mapeado.")
+    st.caption("v2.0 • Tags de Assunto Ativas")
+
+# -------------------
 # FILTROS E BUSCA
 # -------------------
 with st.expander("🔍 Ferramentas de Filtro e Busca", expanded=True):
-    c1, c2, c3 = st.columns([2, 1, 1])
+    c1, c2, c3, c4 = st.columns([2, 1, 1, 1])
     with c1:
         busca = st.text_input("Buscar palavra-chave no título...")
     with c2:
@@ -139,8 +194,12 @@ with st.expander("🔍 Ferramentas de Filtro e Busca", expanded=True):
     with c3:
         opcoes_a = sorted(df["autor"].dropna().unique()) if not df.empty else []
         autores = st.multiselect("Filtrar por Autor", options=opcoes_a)
+    with c4:
+        # NOVO FILTRO: Temas Automáticos!
+        opcoes_t = sorted(df["tema"].unique()) if not df.empty else []
+        temas_selecionados = st.multiselect("🏷️ Filtrar por Tema", options=opcoes_t, default=opcoes_t)
 
-# Aplicação dos filtros selecionados (Corrigido os recuos internos)
+# Aplicação dos filtros selecionados
 if not df.empty:
     if busca:
         df = df[df["titulo"].str.contains(busca, case=False, na=False)]
@@ -148,6 +207,8 @@ if not df.empty:
         df = df[df["veiculo"].isin(veiculos)]
     if autores:
         df = df[df["autor"].isin(autores)]
+    if temas_selecionados:
+        df = df[df["tema"].isin(temas_selecionados)]
 
 # -------------------
 # TABELA PRINCIPAL COM SELEÇÃO E EXPORTAÇÃO
@@ -155,52 +216,24 @@ if not df.empty:
 st.subheader("📋 Clipping de Notícias")
 
 if not df.empty:
+    # Mantém o ID e adiciona o Tema na tabela de exibição
+    df_exibicao = df[["id", "tema", "veiculo", "titulo", "autor", "url", "data_publicacao"]].copy()
 
-    # Mantém o ID internamente
-    df_exibicao = df[
-        ["id", "veiculo", "titulo", "autor", "url", "data_publicacao"]
-    ].copy()
-
-    # Estado persistente
     if "noticias_selecionadas" not in st.session_state:
         st.session_state.noticias_selecionadas = set()
 
-    # Checkbox mestre
-    selecionar_tudo = st.checkbox(
-        "Selecionar todas as notícias exibidas"
-    )
+    selecionar_tudo = st.checkbox("Selecionar todas as notícias exibidas")
 
     if selecionar_tudo:
-        st.session_state.noticias_selecionadas = set(
-            df_exibicao["id"].tolist()
-        )
-
-    # Se desmarcar o mestre, limpa tudo
+        st.session_state.noticias_selecionadas = set(df_exibicao["id"].tolist())
     elif selecionar_tudo is False:
         if len(st.session_state.noticias_selecionadas) == len(df_exibicao):
             st.session_state.noticias_selecionadas = set()
 
-    # Monta coluna de seleção baseada nos IDs
-    df_exibicao["Selecionar"] = df_exibicao["id"].apply(
-        lambda x: x in st.session_state.noticias_selecionadas
-    )
+    df_exibicao["Selecionar"] = df_exibicao["id"].apply(lambda x: x in st.session_state.noticias_selecionadas)
 
-    # Coloca checkbox na primeira coluna
-    cols = [
-        "Selecionar",
-        "id",
-        "veiculo",
-        "titulo",
-        "autor",
-        "url",
-        "data_publicacao"
-    ]
-
+    cols = ["Selecionar", "id", "tema", "veiculo", "titulo", "autor", "url", "data_publicacao"]
     df_exibicao = df_exibicao[cols]
-
-    # -------------------
-    # TABELA
-    # -------------------
 
     edited_df = st.data_editor(
         df_exibicao,
@@ -209,100 +242,33 @@ if not df.empty:
         height=900,
         key="editor_noticias",
         column_config={
-            "Selecionar": st.column_config.CheckboxColumn(
-                "✓"
-            ),
+            "Selecionar": st.column_config.CheckboxColumn("✓"),
             "id": None,
-            "veiculo": st.column_config.TextColumn(
-                "Fonte"
-            ),
-            "titulo": st.column_config.TextColumn(
-                "Notícia (Título)",
-                width="large"
-            ),
-            "autor": st.column_config.TextColumn(
-                "Autor"
-            ),
-            "url": st.column_config.LinkColumn(
-                "Link",
-                display_text="Ler Agora"
-            ),
-            "data_publicacao": st.column_config.TextColumn(
-                "Horário"
-            )
+            "tema": st.column_config.TextColumn("🏷️ Tema", width="medium"),
+            "veiculo": st.column_config.TextColumn("Fonte"),
+            "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
+            "autor": st.column_config.TextColumn("Autor"),
+            "url": st.column_config.LinkColumn("Link", display_text="Ler Agora"),
+            "data_publicacao": st.column_config.TextColumn("Horário")
         }
     )
 
-    # Atualiza seleção usando IDs
-    ids_marcados = edited_df.loc[
-        edited_df["Selecionar"],
-        "id"
-    ].tolist()
-
+    ids_marcados = edited_df.loc[edited_df["Selecionar"], "id"].tolist()
     st.session_state.noticias_selecionadas = set(ids_marcados)
 
-    # DataFrame final das selecionadas
-    selecionadas_df = df[
-        df["id"].isin(
-            st.session_state.noticias_selecionadas
-        )
-    ]
-
-    st.markdown(
-        f"### 📰 {len(selecionadas_df)} notícia(s) selecionada(s)"
-    )
+    selecionadas_df = df[df["id"].isin(st.session_state.noticias_selecionadas)]
+    st.markdown(f"### 📰 {len(selecionadas_df)} notícia(s) selecionada(s)")
 
     # -------------------
     # EXPORTAÇÃO
     # -------------------
-
     col1, col2 = st.columns(2)
 
     with col1:
-
-        csv_total = (
-            df.drop(columns=["id"], errors="ignore")
-            .to_csv(index=False)
-            .encode("utf-8")
-        )
-
-        st.download_button(
-            "📥 Exportar Tudo",
-            csv_total,
-            "clipping_completo.csv",
-            "text/csv",
-            use_container_width=True
-        )
+        csv_total = df.drop(columns=["id"], errors="ignore").to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Exportar Tudo", csv_total, "clipping_completo.csv", "text/csv", use_container_width=True)
 
     with col2:
-
         if len(selecionadas_df) > 0:
-
-            csv_sel = (
-                selecionadas_df
-                .drop(columns=["id"], errors="ignore")
-                .to_csv(index=False)
-                .encode("utf-8")
-            )
-
-            st.download_button(
-                f"✅ Exportar {len(selecionadas_df)} Selecionadas",
-                csv_sel,
-                "noticias_selecionadas.csv",
-                "text/csv",
-                use_container_width=True
-            )
-
-        else:
-
-            st.button(
-                "✅ Exportar Selecionadas",
-                disabled=True,
-                use_container_width=True
-            )
-
-else:
-
-    st.info(
-        "Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio."
-    )
+            csv_sel = selecionadas_df.drop(columns=["id"], errors="ignore").to_csv(index=False).encode("utf-8")
+            st.download_button(f"✅ Exportar {len(selecionadas_df)} Selecionadas", csv_sel, "noticias_selecionadas.csv", "text/csv", use_container_width=True)
