@@ -34,18 +34,16 @@ def calcular_furos_reais(df):
         return df
     
     df["furo"] = ""
-    # Ordena do mais antigo para o mais novo para achar o primeiro a publicar
-    df = df.sort_values(by='data_publicacao', ascending=True)
+    # Usa a nova coluna de data real para achar o primeiro
+    df = df.sort_values(by='data_dt', ascending=True)
     
     temas_vistos = set()
     for index, row in df.iterrows():
-        # Se for o primeiro a falar sobre aquele tema (e não for "Outros"), ganha a medalha
         if row['tema'] not in temas_vistos and row['tema'] != "Outros":
             df.at[index, 'furo'] = "🥇 Primeiro"
             temas_vistos.add(row['tema'])
             
-    # Volta para a ordem normal (mais recentes no topo)
-    return df.sort_values(by='data_publicacao', ascending=False)
+    return df.sort_values(by='data_dt', ascending=False)
 
 # ==========================================
 # 2. CONEXÃO COM O BANCO
@@ -68,11 +66,11 @@ df = carregar_dados()
 # 3. PROCESSAMENTO DA BASE
 # ==========================================
 if not df.empty:
-    # Transforma o texto em data real (UTC) e remove datas corrompidas
+    # Transforma o texto em data real (UTC) e remove corrompidas
     df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
     df = df.dropna(subset=['data_dt'])
     
-    # Converte para o fuso horário de Brasília
+    # Converte para Brasília
     df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
     
     # Cria a coluna visual no padrão brasileiro
@@ -80,14 +78,13 @@ if not df.empty:
 
     df["tema"] = df["titulo"].apply(classificar_tema)
     
-    # Agora calculamos o furo usando a data real matemática
+    # Calcula os furos com a matemática correta
     df = calcular_furos_reais(df)
     
-    # Atualiza a ordem final para mostrar os mais recentes no topo
     df = df.sort_values(by='data_dt', ascending=False).reset_index(drop=True)
 
     # ==========================================
-    # 4. BARRA LATERAL (FILTROS COMPLETOS)
+    # 4. BARRA LATERAL (FILTROS)
     # ==========================================
     st.sidebar.image("https://cdn-icons-png.flaticon.com/512/2965/2965879.png", width=50)
     st.sidebar.title("🔍 Filtros de Busca")
@@ -98,7 +95,6 @@ if not df.empty:
     temas_selecionados = st.sidebar.multiselect("🏷️ Temas", df['tema'].dropna().unique().tolist())
     furos_selecionados = st.sidebar.multiselect("🏆 Status (Furo)", ["🥇 Primeiro", ""])
 
-    # Aplicação dos Filtros
     df_filtrado = df.copy()
     if busca:
         df_filtrado = df_filtrado[df_filtrado['titulo'].str.contains(busca, case=False, na=False)]
@@ -110,13 +106,12 @@ if not df.empty:
         df_filtrado = df_filtrado[df_filtrado['furo'].isin(furos_selecionados)]
 
     # ==========================================
-    # 5. TELA PRINCIPAL (HEADER E CARDS)
+    # 5. TELA PRINCIPAL (HEADER)
     # ==========================================
     st.title("📰 Painel de Monitoramento de Notícias")
     st.markdown("Acompanhamento em tempo real de publicações e furos jornalísticos.")
     st.markdown("---")
 
-    # Cards de Métricas
     col1, col2, col3 = st.columns(3)
     col1.metric("📌 Total de Notícias", len(df_filtrado))
     
@@ -129,16 +124,20 @@ if not df.empty:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ==========================================
-    # 6. TABELA COM LINKS CLICÁVEIS
+    # 6. TABELA COM DATA BRASILEIRA E LINKS
     # ==========================================
-   st.dataframe(
+    st.dataframe(
         df_filtrado[["veiculo", "data_formatada", "titulo", "tema", "furo", "url"]],
         use_container_width=True,
         hide_index=True,
         column_config={
             "veiculo": st.column_config.TextColumn("Veículo", width="medium"),
-            "data_formatada": st.column_config.TextColumn("Data", width="medium"), # <- Atualizado aqui
-            # ... o resto continua igual ...        }
+            "data_formatada": st.column_config.TextColumn("Data", width="medium"),
+            "titulo": st.column_config.TextColumn("Título", width="large"),
+            "tema": st.column_config.TextColumn("Tema", width="small"),
+            "furo": st.column_config.TextColumn("Furo", width="small"),
+            "url": st.column_config.LinkColumn("Link", display_text="Abrir Notícia 🔗", width="small")
+        }
     )
 else:
     st.warning("O banco de dados está vazio ou não retornou nada.")
