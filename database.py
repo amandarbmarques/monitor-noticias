@@ -1,8 +1,7 @@
 import psycopg2
-from psycopg2.extras import execute_values
 from datetime import datetime
 
-# URL DO POOLER 100% NO PADRÃO DIRETO DO SUPABASE
+# URL CORRIGIDA DE ACORDO COM A NOVA INFRAESTRUTURA DO SUPABASE
 DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
 def get_connection():
