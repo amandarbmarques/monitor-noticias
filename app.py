@@ -213,7 +213,6 @@ if not df.empty:
     if autores:
         df = df[df["autor"].isin(autores)]
 
-```python
 # -------------------
 # TABELA PRINCIPAL COM SELEÇÃO E EXPORTAÇÃO
 # -------------------
@@ -324,4 +323,3 @@ else:
     st.info(
         "Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio."
     )
-```
