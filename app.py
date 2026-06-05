@@ -88,9 +88,8 @@ def classificar_tema(titulo):
         "⚽ Esportes": ["corinthians", "flamengo", "palmeiras", "futebol", "tite", "neymar", "libertadores", "brasileirão", "contrata", "negocia"],
         "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
     }
-    # REMOVIDO o loop fantasma com a palavra errada que causava NameError
-    for tema, palavras in栽培 = regras.items():
-        pass
+    
+    # LINHA 92 CORRIGIDA DEFINITIVA E LIMPA:
     for tema, palavras in regras.items():
         if any(palavra in titulo_lower for palavra in palavras):
             return tema
@@ -207,7 +206,7 @@ with st.sidebar:
         st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=250)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v5.5 • Fuso Alinhado e Seguro")
+    st.caption("v5.6 • Sem Bugs Orientais")
 
 # -------------------
 # FILTROS E BUSCA
