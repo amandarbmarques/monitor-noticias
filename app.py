@@ -131,18 +131,14 @@ if not df.empty:
     # ==========================================
     # 6. TABELA COM LINKS CLICÁVEIS
     # ==========================================
-    st.dataframe(
-        df_filtrado[["veiculo", "data_publicacao", "titulo", "tema", "furo", "url"]],
+   st.dataframe(
+        df_filtrado[["veiculo", "data_formatada", "titulo", "tema", "furo", "url"]],
         use_container_width=True,
         hide_index=True,
         column_config={
             "veiculo": st.column_config.TextColumn("Veículo", width="medium"),
-            "data_publicacao": st.column_config.TextColumn("Data de Publicação", width="medium"),
-            "titulo": st.column_config.TextColumn("Título", width="large"),
-            "tema": st.column_config.TextColumn("Tema", width="small"),
-            "furo": st.column_config.TextColumn("Furo", width="small"),
-            "url": st.column_config.LinkColumn("Link", display_text="Abrir Notícia 🔗", width="small")
-        }
+            "data_formatada": st.column_config.TextColumn("Data", width="medium"), # <- Atualizado aqui
+            # ... o resto continua igual ...        }
     )
 else:
     st.warning("O banco de dados está vazio ou não retornou nada.")
