@@ -214,32 +214,95 @@ if not df.empty:
         df = df[df["autor"].isin(autores)]
 
 # -------------------
-# TABELA PRINCIPAL EXPANDIDA (MODO LISTÃO GRANDE)
+# TABELA PRINCIPAL COM SELEÇÃO
 # -------------------
 st.subheader("📋 Clipping de Notícias")
 
 if not df.empty:
-    st.dataframe(
-        df[["veiculo", "titulo", "autor", "url", "data_publicacao"]],
+
+    df_exibicao = df[
+        ["veiculo", "titulo", "autor", "url", "data_publicacao"]
+    ].copy()
+
+    df_exibicao.insert(0, "Selecionar", False)
+
+    edited_df = st.data_editor(
+        df_exibicao,
         use_container_width=True,
         hide_index=True,
-        height=900,  # Altura gigante para ver muitas notícias de uma vez só!
+        height=900,
         column_config={
-            "veiculo": st.column_config.TextColumn("Fonte", width="small"),
-            "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
-            "autor": st.column_config.TextColumn("Autor", width="medium"),
-            "data_publicacao": st.column_config.TextColumn("Horário", width="small"),
+            "Selecionar": st.column_config.CheckboxColumn(
+                "✓",
+                help="Selecione notícias para exportação"
+            ),
+            "veiculo": st.column_config.TextColumn(
+                "Fonte",
+                width="small"
+            ),
+            "titulo": st.column_config.TextColumn(
+                "Notícia (Título)",
+                width="large"
+            ),
+            "autor": st.column_config.TextColumn(
+                "Autor",
+                width="medium"
+            ),
+            "data_publicacao": st.column_config.TextColumn(
+                "Horário",
+                width="small"
+            ),
             "url": st.column_config.LinkColumn(
-                "Link", 
-                display_text="Ler Agora", 
-                help="Clique para abrir a matéria original",
+                "Link",
+                display_text="Ler Agora",
                 width="small"
             )
         }
     )
-    
-    csv = df.to_csv(index=False).encode("utf-8")
-    st.markdown("###")
-    st.download_button("📥 Exportar Clipping para Excel/CSV", csv, "clipping_noticias.csv", "text/csv")
+
+    selecionadas = edited_df[
+        edited_df["Selecionar"] == True
+    ]
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        csv_total = (
+            df.drop(columns=["id"], errors="ignore")
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            "📥 Exportar Tudo",
+            csv_total,
+            "clipping_completo.csv",
+            "text/csv"
+        )
+
+    with col2:
+
+        if len(selecionadas) > 0:
+
+            csv_sel = (
+                selecionadas
+                .drop(columns=["Selecionar"])
+                .to_csv(index=False)
+                .encode("utf-8")
+            )
+
+            st.download_button(
+                f"✅ Exportar {len(selecionadas)} Selecionadas",
+                csv_sel,
+                "noticias_selecionadas.csv",
+                "text/csv"
+            )
+
+        else:
+            st.info("Selecione notícias para exportar.")
+
 else:
-    st.info("Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio.")
+    st.info(
+        "Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio."
+    )
