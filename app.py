@@ -356,6 +356,8 @@ if not df.empty:
         edited_df["Selecionar"].tolist()
     )
 
+    st.write("Selecionadas:", edited_df["Selecionar"].sum())
+
 # -------------------
 # EXPORTAÇÃO
 # -------------------
