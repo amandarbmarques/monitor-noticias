@@ -1,41 +1,30 @@
-from database import create_table, insert_news
-from folha import coletar_folha
-from poder360 import get_news as poder360_news
-# Importando o novo super hub que criamos no arquivo uol.py
+from database import create_table
+# Importa o funcionário da Folha (se o seu arquivo tiver outro nome, ajuste aqui)
+from folha import sua_funcao_da_folha  
+# Importa o NOSSO NOVO funcionário do Caminhão
 from uol import coletar_via_google_news
 
-def main():
-    # Garante que a tabela do banco de dados existe antes de começar
+def iniciar_coleta():
+    print("🚀 Iniciando o robô de coleta...")
+    
+    # 1. Garante que o banco está criado
     create_table()
-
-    print("=== INICIANDO ROTINA DE COLETA BLINDADA ===")
-
-    # 1. COLETA DA FOLHA (Direta, pois não bloqueia o GitHub)
+    
+    # 2. Manda a Folha trabalhar
     try:
-        print("\n📰 Coletando Folha de S.Paulo...")
-        coletar_folha()
+        print("📰 Coletando Folha...")
+        sua_funcao_da_folha() # <- Mude para o nome real da sua função da folha
     except Exception as e:
-        print(f"❌ Erro ao coletar a Folha: {e}")
-
-    # 2. COLETA VIA HUB GOOGLE NEWS (Traz UOL, Estadão, CNN, JOTA sem bloqueio)
+        print(f"❌ Erro na Folha: {e}")
+        
+    # 3. MANDA O CAMINHÃO DO HUB TRABALHAR (UOL, GLOBO, ESTADÃO, ETC)
     try:
-        print("\n📡 Coletando via Super Hub do Google News (UOL, Estadão, CNN, JOTA)...")
+        print("🚛 Iniciando o Hub do Google News...")
         coletar_via_google_news()
     except Exception as e:
-        print(f"❌ Erro no Super Hub de notícias: {e}")
-
-    # 3. COLETA DO PODER360
-    try:
-        print("\n🏛️ Coletando Poder360...")
-        for item in poder360_news():
-            try:
-                insert_news(item)
-            except Exception as e:
-                print(f"❌ Erro ao inserir notícia do Poder360: {e}")
-    except Exception as e:
-        print(f"❌ Erro geral ao coletar o Poder360: {e}")
-
-    print("\n🏁 === PROCESSO DE AUTOMAÇÃO FINALIZADO COM SUCESSO! ===")
+        print(f"❌ Erro no Hub: {e}")
+        
+    print("✅ Expediente encerrado! Todas as coletas terminaram.")
 
 if __name__ == "__main__":
-    main()
+    iniciar_coleta()
