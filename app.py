@@ -96,24 +96,47 @@ def classificar_tema(titulo):
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (AGORA COM FECHAMENTO DE CONEXÃO)
+# 1. PROCESSAMENTO DOS DADOS 
 # -------------------
 import psycopg2
+import pandas as pd
 
 try:
     DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
     
-    # Abre a porta
+    # Abre, lê e fecha a porta!
     conn = psycopg2.connect(DB_URI)
-    # Tira a "foto" (lê os dados)
     df = pd.read_sql("SELECT * FROM noticias", conn)
-    # FECHA A PORTA (Obrigatório)
     conn.close()
 except Exception as e:
     st.error(f"Erro ao conectar ao banco na nuvem: {e}")
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
-# Daqui para baixo continua igualzinho...
+# Tratamento do Fuso e Regra de 5 Dias
+if not df.empty:
+    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
+    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
+    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize(None)
+
+    agora = pd.Timestamp.now().tz_localize(None)
+    limite_tempo = agora - pd.Timedelta(days=5)
+    df = df[df['data_publicacao_dt'] >= limite_tempo].copy()
+
+    if not df.empty:
+        df = df.sort_values(by='data_publicacao_dt', ascending=True).reset_index(drop=True)
+        df = calcular_furos_reais(df)
+        df["tema"] = df["titulo"].apply(classificar_tema)
+        df = df.sort_values(by='data_publicacao_dt', ascending=False).reset_index(drop=True)
+        df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
+
+# ==========================================
+# 🛡️ BLINDAGEM CONTRA O KEYERROR AQUI:
+# Garante que as colunas existam mesmo se a tabela estiver vazia
+# ==========================================
+if "furo" not in df.columns:
+    df["furo"] = ""
+if "tema" not in df.columns:
+    df["tema"] = ""
     
 # -------------------
 # BARRA LATERAL (Placares)
