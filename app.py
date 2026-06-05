@@ -68,4 +68,23 @@ def classificar_tema(titulo):
     regras = {
         "⚖️ Judiciário/STF": ["stf", "supremo", "julga", "justiça", "moraes", "tse", "liminar", "tribunal", "ministro do stf", "pauta jurídica"],
         "🏛️ Política": ["lula", "governo", "planalto", "congresso", "senado", "câmara", "ministros", "bolsa família", "partido", "eleição", "votação", "pec"],
-        "💰 Economia":
+        "💰 Economia": ["ibovespa", "inflação", "selic", "dólar", "mercado", "petrobras", "banco central", "campos neto", "taxa", "juros", "fazenda", "haddad", "gasto", "iof", "ir", "imposto"],
+        "⚽ Esportes": ["corinthians", "flamengo", "palmeiras", "futebol", "tite", "neymar", "libertadores", "brasileirão", "contrata", "negocia"],
+        "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
+    }
+    
+    for tema, palavras in regras.items():
+        if any(palavra in titulo_lower for palavra in palavras):
+            return tema
+            
+    return "📰 Geral"
+
+if not df.empty:
+    df["tema"] = df["titulo"].apply(classificar_tema)
+else:
+    df["tema"] = []
+
+# -------------------
+# 2. HEADER CUSTOMIZADO
+# -------------------
+if not df.
