@@ -220,46 +220,100 @@ st.subheader("📋 Clipping de Notícias")
 
 if not df.empty:
 
+    # Mantém o ID internamente
     df_exibicao = df[
-        ["veiculo", "titulo", "autor", "url", "data_publicacao"]
+        ["id", "veiculo", "titulo", "autor", "url", "data_publicacao"]
     ].copy()
 
-    # Estado persistente das seleções
-    if "selecoes_noticias" not in st.session_state:
-        st.session_state.selecoes_noticias = [False] * len(df_exibicao)
+    # Estado persistente
+    if "noticias_selecionadas" not in st.session_state:
+        st.session_state.noticias_selecionadas = set()
 
-    if len(st.session_state.selecoes_noticias) != len(df_exibicao):
-        st.session_state.selecoes_noticias = [False] * len(df_exibicao)
-
-    # Estado do checkbox mestre
-    if "selecionar_tudo" not in st.session_state:
-        st.session_state.selecionar_tudo = False
-
-    df_exibicao.insert(
-        0,
-        "Selecionar",
-        st.session_state.selecoes_noticias
-    )
-
-    # -------------------
-    # CONTROLES
-    # -------------------
-
+    # Checkbox mestre
     selecionar_tudo = st.checkbox(
-        "Selecionar todas as notícias exibidas",
-        key="selecionar_tudo"
+        "Selecionar todas as notícias exibidas"
     )
 
-    # Marca ou desmarca tudo
     if selecionar_tudo:
-        df_exibicao["Selecionar"] = True
-    else:
-        df_exibicao["Selecionar"] = False
+        st.session_state.noticias_selecionadas = set(
+            df_exibicao["id"].tolist()
+        )
 
-    qtd_selecionadas = int(df_exibicao["Selecionar"].sum())
+    # Se desmarcar o mestre, limpa tudo
+    elif selecionar_tudo is False:
+        if len(st.session_state.noticias_selecionadas) == len(df_exibicao):
+            st.session_state.noticias_selecionadas = set()
+
+    # Monta coluna de seleção baseada nos IDs
+    df_exibicao["Selecionar"] = df_exibicao["id"].apply(
+        lambda x: x in st.session_state.noticias_selecionadas
+    )
+
+    # Coloca checkbox na primeira coluna
+    cols = [
+        "Selecionar",
+        "id",
+        "veiculo",
+        "titulo",
+        "autor",
+        "url",
+        "data_publicacao"
+    ]
+
+    df_exibicao = df_exibicao[cols]
+
+    # -------------------
+    # TABELA
+    # -------------------
+
+    edited_df = st.data_editor(
+        df_exibicao,
+        use_container_width=True,
+        hide_index=True,
+        height=900,
+        key="editor_noticias",
+        column_config={
+            "Selecionar": st.column_config.CheckboxColumn(
+                "✓"
+            ),
+            "id": None,
+            "veiculo": st.column_config.TextColumn(
+                "Fonte"
+            ),
+            "titulo": st.column_config.TextColumn(
+                "Notícia (Título)",
+                width="large"
+            ),
+            "autor": st.column_config.TextColumn(
+                "Autor"
+            ),
+            "url": st.column_config.LinkColumn(
+                "Link",
+                display_text="Ler Agora"
+            ),
+            "data_publicacao": st.column_config.TextColumn(
+                "Horário"
+            )
+        }
+    )
+
+    # Atualiza seleção usando IDs
+    ids_marcados = edited_df.loc[
+        edited_df["Selecionar"],
+        "id"
+    ].tolist()
+
+    st.session_state.noticias_selecionadas = set(ids_marcados)
+
+    # DataFrame final das selecionadas
+    selecionadas_df = df[
+        df["id"].isin(
+            st.session_state.noticias_selecionadas
+        )
+    ]
 
     st.markdown(
-        f"**📰 {qtd_selecionadas} notícia(s) selecionada(s)**"
+        f"### 📰 {len(selecionadas_df)} notícia(s) selecionada(s)"
     )
 
     # -------------------
@@ -286,15 +340,11 @@ if not df.empty:
 
     with col2:
 
-        selecionadas_df = df_exibicao[
-            df_exibicao["Selecionar"] == True
-        ]
-
         if len(selecionadas_df) > 0:
 
             csv_sel = (
                 selecionadas_df
-                .drop(columns=["Selecionar"])
+                .drop(columns=["id"], errors="ignore")
                 .to_csv(index=False)
                 .encode("utf-8")
             )
@@ -315,100 +365,8 @@ if not df.empty:
                 use_container_width=True
             )
 
-    st.markdown("---")
+else:
 
-    # -------------------
-    # TABELA
-    # -------------------
-
-    edited_df = st.data_editor(
-        df_exibicao,
-        use_container_width=True,
-        hide_index=True,
-        height=900,
-        key="editor_noticias",
-        column_config={
-            "Selecionar": st.column_config.CheckboxColumn(
-                "✓",
-                help="Selecione notícias para exportação"
-            ),
-            "veiculo": st.column_config.TextColumn(
-                "Fonte"
-            ),
-            "titulo": st.column_config.TextColumn(
-                "Notícia (Título)",
-                width="large"
-            ),
-            "autor": st.column_config.TextColumn(
-                "Autor"
-            ),
-            "data_publicacao": st.column_config.TextColumn(
-                "Horário"
-            ),
-            "url": st.column_config.LinkColumn(
-                "Link",
-                display_text="Ler Agora"
-            )
-        }
+    st.info(
+        "Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio."
     )
-
-    st.session_state.selecoes_noticias = (
-        edited_df["Selecionar"].tolist()
-    )
-
-    st.write("Selecionadas:", edited_df["Selecionar"].sum())
-
-# -------------------
-# EXPORTAÇÃO
-# -------------------
-
-selecionadas_df = edited_df[
-    edited_df["Selecionar"] == True
-]
-
-st.markdown("---")
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    csv_total = (
-        df.drop(columns=["id"], errors="ignore")
-        .to_csv(index=False)
-        .encode("utf-8")
-    )
-
-    st.download_button(
-        "📥 Exportar Tudo",
-        csv_total,
-        "clipping_completo.csv",
-        "text/csv",
-        use_container_width=True
-    )
-
-with col2:
-
-    if len(selecionadas_df) > 0:
-
-        csv_sel = (
-            selecionadas_df
-            .drop(columns=["Selecionar"])
-            .to_csv(index=False)
-            .encode("utf-8")
-        )
-
-        st.download_button(
-            f"✅ Exportar {len(selecionadas_df)} Selecionadas",
-            csv_sel,
-            "noticias_selecionadas.csv",
-            "text/csv",
-            use_container_width=True
-        )
-
-    else:
-
-        st.button(
-            "✅ Exportar Selecionadas",
-            disabled=True,
-            use_container_width=True
-        )
