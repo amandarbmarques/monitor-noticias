@@ -68,8 +68,23 @@ df = carregar_dados()
 # 3. PROCESSAMENTO DA BASE
 # ==========================================
 if not df.empty:
+    # Transforma o texto em data real (UTC) e remove datas corrompidas
+    df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
+    df = df.dropna(subset=['data_dt'])
+    
+    # Converte para o fuso horário de Brasília
+    df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
+    
+    # Cria a coluna visual no padrão brasileiro
+    df['data_formatada'] = df['data_dt'].dt.strftime('%d/%m/%Y %H:%M')
+
     df["tema"] = df["titulo"].apply(classificar_tema)
+    
+    # Agora calculamos o furo usando a data real matemática
     df = calcular_furos_reais(df)
+    
+    # Atualiza a ordem final para mostrar os mais recentes no topo
+    df = df.sort_values(by='data_dt', ascending=False).reset_index(drop=True)
 
     # ==========================================
     # 4. BARRA LATERAL (FILTROS COMPLETOS)
