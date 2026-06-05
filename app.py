@@ -96,19 +96,20 @@ def classificar_tema(titulo):
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (SUPABASE VIA CONNECTION POOLING)
+# 1. PROCESSAMENTO DOS DADOS (SUPABASE VIA POOLER CORRIGIDO)
 # -------------------
 import psycopg2
 
 try:
-    # URL idêntica corrigida para a porta 6543 com SSL forçado
-    DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    # URL oficial idêntica com o parâmetro de usuário correto no final
+    DB_URI = "postgresql://postgres:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?user=postgres.hhfttkctypcgrdwvnhug&sslmode=require"
     
     with psycopg2.connect(DB_URI) as conn:
         df = pd.read_sql("SELECT * FROM noticias", conn)
 except Exception as e:
     st.error(f"Erro ao conectar ao banco na nuvem: {e}")
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
+
 # -------------------
 # BARRA LATERAL (Placares)
 # -------------------
