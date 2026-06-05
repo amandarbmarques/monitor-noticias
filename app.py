@@ -220,17 +220,26 @@ st.subheader("📋 Clipping de Notícias")
 
 if not df.empty:
 
+    # Dados exibidos
     df_exibicao = df[
         ["veiculo", "titulo", "autor", "url", "data_publicacao"]
     ].copy()
 
-    df_exibicao.insert(0, "Selecionar", False)
+    # Checkbox
+    if "Selecionar" not in df_exibicao.columns:
+        df_exibicao.insert(0, "Selecionar", False)
 
+    # Inicializa estado
+    if "df_editor" not in st.session_state:
+        st.session_state.df_editor = df_exibicao
+
+    # Editor
     edited_df = st.data_editor(
-        df_exibicao,
+        st.session_state.df_editor,
         use_container_width=True,
         hide_index=True,
         height=900,
+        key="editor_noticias",
         column_config={
             "Selecionar": st.column_config.CheckboxColumn(
                 "✓",
@@ -260,9 +269,19 @@ if not df.empty:
         }
     )
 
+    st.session_state.df_editor = edited_df
+
     selecionadas = edited_df[
         edited_df["Selecionar"] == True
     ]
+
+    # -------------------
+    # BARRA DE EXPORTAÇÃO
+    # -------------------
+
+    st.markdown(
+        f"**📰 Notícias selecionadas: {len(selecionadas)}**"
+    )
 
     col1, col2 = st.columns(2)
 
@@ -278,7 +297,8 @@ if not df.empty:
             "📥 Exportar Tudo",
             csv_total,
             "clipping_completo.csv",
-            "text/csv"
+            "text/csv",
+            use_container_width=True
         )
 
     with col2:
@@ -296,11 +316,41 @@ if not df.empty:
                 f"✅ Exportar {len(selecionadas)} Selecionadas",
                 csv_sel,
                 "noticias_selecionadas.csv",
-                "text/csv"
+                "text/csv",
+                use_container_width=True
             )
 
         else:
-            st.info("Selecione notícias para exportar.")
+
+            st.button(
+                "✅ Exportar Selecionadas",
+                disabled=True,
+                use_container_width=True
+            )
+
+    st.markdown("---")
+
+    # -------------------
+    # TABELA
+    # -------------------
+
+    st.dataframe(
+        edited_df,
+        use_container_width=True,
+        hide_index=True,
+        height=900,
+        column_config={
+            "Selecionar": st.column_config.CheckboxColumn("✓"),
+            "veiculo": st.column_config.TextColumn("Fonte"),
+            "titulo": st.column_config.TextColumn("Notícia"),
+            "autor": st.column_config.TextColumn("Autor"),
+            "data_publicacao": st.column_config.TextColumn("Horário"),
+            "url": st.column_config.LinkColumn(
+                "Link",
+                display_text="Ler Agora"
+            )
+        }
+    )
 
 else:
     st.info(
