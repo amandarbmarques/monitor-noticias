@@ -80,7 +80,6 @@ if not df.empty:
 def classificar_tema(titulo):
     titulo_lower = str(titulo).lower()
     
-    # Regras de correspondência por palavras-chave
     regras = {
         "⚖️ Judiciário/STF": ["stf", "supremo", "julga", "justiça", "moraes", "tse", "liminar", "tribunal", "ministro do stf", "pauta jurídica"],
         "🏛️ Política": ["lula", "governo", "planalto", "congresso", "senado", "câmara", "ministros", "bolsa família", "partido", "eleição", "votação", "pec"],
@@ -89,8 +88,8 @@ def classificar_tema(titulo):
         "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
     }
     
-    for tema, palavras in regras.items():
-        if any(palavra in titulo_lower for palabra in palavras):
+    for tema, palavras in reggae.items():
+        if any(palavra in titulo_lower for palavra in palavras):
             return tema
             
     return "📰 Geral"
@@ -127,18 +126,25 @@ with col_tit:
     """, unsafe_allow_html=True)
 
 with col_stat:
+    # Renderiza a estrutura do status injetando a variável com segurança
     st.markdown(f"""
         <div style="text-align: right; padding-top: 20px;">
             <div style="display: inline-flex; align-items: center; background-color: #ECFDF5; border: 1px solid #10B981; padding: 4px 12px; border-radius: 20px;">
-                <span style="height: 8px; width: 8px; background-color: #10B981; border-radius: 50%; display: inline-block; margin-right: 8px; animation: pulse 2s infinite;"></span>
+                <span class="dot-pulsing" style="height: 8px; width: 8px; background-color: #10B981; border-radius: 50%; display: inline-block; margin-right: 8px;"></span>
                 <span style="color: #065F46; font-size: 12px; font-weight: 700; text-transform: uppercase;">Sistema Live</span>
             </div>
             <p style="color: #94A3B8; font-size: 11px; margin-top: 8px; font-weight: 500;">
                 Última coleta: {ultima_atualizacao}
             </p>
         </div>
-        
+    """, unsafe_allow_html=True)
+    
+    # CSS isolado sem f-string para não quebrar com as chaves do @keyframes
+    st.markdown("""
         <style>
+        .dot-pulsing {
+            animation: pulse 2s infinite;
+        }
         @keyframes pulse {
             0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
             70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
@@ -156,7 +162,6 @@ if not df.empty:
     st.markdown("### 📊 Temas Mais Cobertos")
     contagem_temas = df["tema"].value_counts()
     
-    # Criar colunas para exibir os contadores de temas dinamicamente
     cols_temas = st.columns(len(contagem_temas))
     for idx, (tema, qtd) in enumerate(contagem_temas.items()):
         with cols_temas[idx]:
@@ -195,7 +200,6 @@ with st.expander("🔍 Ferramentas de Filtro e Busca", expanded=True):
         opcoes_a = sorted(df["autor"].dropna().unique()) if not df.empty else []
         autores = st.multiselect("Filtrar por Autor", options=opcoes_a)
     with c4:
-        # NOVO FILTRO: Temas Automáticos!
         opcoes_t = sorted(df["tema"].unique()) if not df.empty else []
         temas_selecionados = st.multiselect("🏷️ Filtrar por Tema", options=opcoes_t, default=opcoes_t)
 
@@ -216,7 +220,6 @@ if not df.empty:
 st.subheader("📋 Clipping de Notícias")
 
 if not df.empty:
-    # Mantém o ID e adiciona o Tema na tabela de exibição
     df_exibicao = df[["id", "tema", "veiculo", "titulo", "autor", "url", "data_publicacao"]].copy()
 
     if "noticias_selecionadas" not in st.session_state:
@@ -232,43 +235,4 @@ if not df.empty:
 
     df_exibicao["Selecionar"] = df_exibicao["id"].apply(lambda x: x in st.session_state.noticias_selecionadas)
 
-    cols = ["Selecionar", "id", "tema", "veiculo", "titulo", "autor", "url", "data_publicacao"]
-    df_exibicao = df_exibicao[cols]
-
-    edited_df = st.data_editor(
-        df_exibicao,
-        use_container_width=True,
-        hide_index=True,
-        height=900,
-        key="editor_noticias",
-        column_config={
-            "Selecionar": st.column_config.CheckboxColumn("✓"),
-            "id": None,
-            "tema": st.column_config.TextColumn("🏷️ Tema", width="medium"),
-            "veiculo": st.column_config.TextColumn("Fonte"),
-            "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
-            "autor": st.column_config.TextColumn("Autor"),
-            "url": st.column_config.LinkColumn("Link", display_text="Ler Agora"),
-            "data_publicacao": st.column_config.TextColumn("Horário")
-        }
-    )
-
-    ids_marcados = edited_df.loc[edited_df["Selecionar"], "id"].tolist()
-    st.session_state.noticias_selecionadas = set(ids_marcados)
-
-    selecionadas_df = df[df["id"].isin(st.session_state.noticias_selecionadas)]
-    st.markdown(f"### 📰 {len(selecionadas_df)} notícia(s) selecionada(s)")
-
-    # -------------------
-    # EXPORTAÇÃO
-    # -------------------
-    col1, col2 = st.columns(2)
-
-    with col1:
-        csv_total = df.drop(columns=["id"], errors="ignore").to_csv(index=False).encode("utf-8")
-        st.download_button("📥 Exportar Tudo", csv_total, "clipping_completo.csv", "text/csv", use_container_width=True)
-
-    with col2:
-        if len(selecionadas_df) > 0:
-            csv_sel = selecionadas_df.drop(columns=["id"], errors="ignore").to_csv(index=False).encode("utf-8")
-            st.download_button(f"✅ Exportar {len(selecionadas_df)} Selecionadas", csv_sel, "noticias_selecionadas.csv", "text/csv", use_container_width=True)
+    cols =
