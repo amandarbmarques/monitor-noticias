@@ -1,6 +1,5 @@
 import psycopg2
 
-# URL EXATA DO SEU SERVIDOR NOS EUA (COM SENHA CODIFICADA PARA NÃO QUEBRAR O LINK)
 DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
 
 def get_connection():
@@ -18,14 +17,20 @@ def create_table():
         data_coleta VARCHAR(100)
     );
     """
+    conn = None
     try:
-        with get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(query)
-                conn.commit()
-        print("✅ Tabela 'noticias' verificada/criada no Supabase com sucesso!")
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(query)
+        conn.commit()
+        cursor.close()
+        print("✅ Tabela 'noticias' verificada/criada no Supabase!")
     except Exception as e:
-        print(f"❌ Erro ao criar tabela no Supabase: {e}")
+        print(f"❌ Erro ao criar tabela: {e}")
+    finally:
+        # A MÁGICA ESTÁ AQUI: Garante que a porta será fechada
+        if conn is not None:
+            conn.close()
 
 def insert_news(noticia):
     query = """
@@ -33,17 +38,23 @@ def insert_news(noticia):
     VALUES (%s, %s, %s, %s, %s, %s)
     ON CONFLICT (titulo) DO NOTHING;
     """
+    conn = None
     try:
-        with get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(query, (
-                    noticia["veiculo"],
-                    noticia["titulo"],
-                    noticia["autor"],
-                    noticia["url"],
-                    noticia["data_publicacao"],
-                    noticia["data_coleta"]
-                ))
-                conn.commit()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, (
+            noticia["veiculo"],
+            noticia["titulo"],
+            noticia["autor"],
+            noticia["url"],
+            noticia["data_publicacao"],
+            noticia["data_coleta"]
+        ))
+        conn.commit()
+        cursor.close()
     except Exception as e:
-        print(f"❌ Erro ao inserir notícia no Supabase: {e}")
+        print(f"❌ Erro ao inserir: {e}")
+    finally:
+        # A MÁGICA ESTÁ AQUI: Garante que a porta será fechada
+        if conn is not None:
+            conn.close()
