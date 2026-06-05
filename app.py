@@ -96,7 +96,7 @@ def classificar_tema(titulo):
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (UNIFICAÇÃO DE FUSO)
+# 1. PROCESSAMENTO DOS DADOS (SEM FILTRO DE TEMPO PARA TESTE)
 # -------------------
 try:
     with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
@@ -105,33 +105,34 @@ except:
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 if not df.empty:
-    # Força a conversão UTC=True para unificar todas as datas no mesmo padrão mundial
-    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
+    # Mostra no terminal do Streamlit quais jornais realmente existem no banco de dados
+    print("VEÍCULOS DETECTADOS NO BANCO:", df['veiculo'].unique())
     
-    # Converte o bloco inteiro para o fuso de São Paulo
-    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
-    
-    # REMOVE o fuso para o Pandas aceitar filtros sem dar pane de mistura
-    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize(None)
+    # Tratamento bruto e direto de data sem frescura de fuso por enquanto
+    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
 
-    # Lógica de 5 dias reativada para performance máxima!
-    agora = pd.Timestamp.now().tz_localize(None)
-    limite_tempo = agora - pd.Timedelta(days=5)
-    df = df[df['data_publicacao_dt'] >= limite_tempo].copy()
+    # 🚨 LINHA DE 5 DIAS DESATIVADA TEMPORARIAMENTE PARA TESTAR SE O UOL APARECE!
+    # agora = pd.Timestamp.now()
+    # limite_tempo = agora - pd.Timedelta(days=5)
+    # df = df[df['data_publicacao_dt'] >= limite_tempo].copy()
 
     if not df.empty:
         df = df.sort_values(by='data_publicacao_dt', ascending=True).reset_index(drop=True)
         df = calcular_furos_reais(df)
         df["tema"] = df["titulo"].apply(classificar_tema)
         df = df.sort_values(by='data_publicacao_dt', ascending=False).reset_index(drop=True)
-        df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
+        # Se der erro na formatação de texto da data, mantém o original do banco
+        try:
+            df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
+        except:
+            pass
     else:
         df['furo'] = []
         df['tema'] = []
 else:
     df['furo'] = []
     df['tema'] = []
-
+    
 # -------------------
 # 2. HEADER CUSTOMIZADO
 # -------------------
