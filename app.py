@@ -96,7 +96,7 @@ def classificar_tema(titulo):
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (SEM FILTRO DE TEMPO PARA TESTE)
+# 1. PROCESSAMENTO DOS DADOS (COM CORRETOR DE DATA DO GOOGLE E FILTRO DE 5 DIAS)
 # -------------------
 try:
     with sqlite3.connect("noticias.db", check_same_thread=False) as conn:
@@ -105,72 +105,34 @@ except:
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 if not df.empty:
-    # Mostra no terminal do Streamlit quais jornais realmente existem no banco de dados
-    print("VEÍCULOS DETECTADOS NO BANCO:", df['veiculo'].unique())
+    # 1. Força a conversão para datetime tratando fusos mistos de forma segura (utc=True)
+    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
     
-    # Tratamento bruto e direto de data sem frescura de fuso por enquanto
-    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
+    # 2. Converte todas as datas para o horário de Brasília/São Paulo uniformemente
+    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
+    
+    # 3. Remove o fuso para o Pandas não travar nos filtros de comparação temporais
+    df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_localize(None)
 
-    # 🚨 LINHA DE 5 DIAS DESATIVADA TEMPORARIAMENTE PARA TESTAR SE O UOL APARECE!
-    # agora = pd.Timestamp.now()
-    # limite_tempo = agora - pd.Timedelta(days=5)
-    # df = df[df['data_publicacao_dt'] >= limite_tempo].copy()
+    # 4. Lógica de 5 dias reativada e 100% segura contra falhas!
+    agora = pd.Timestamp.now().tz_localize(None)
+    limite_tempo = agora - pd.Timedelta(days=5)
+    df = df[df['data_publicacao_dt'] >= limite_tempo].copy()
 
     if not df.empty:
         df = df.sort_values(by='data_publicacao_dt', ascending=True).reset_index(drop=True)
         df = calcular_furos_reais(df)
         df["tema"] = df["titulo"].apply(classificar_tema)
         df = df.sort_values(by='data_publicacao_dt', ascending=False).reset_index(drop=True)
-        # Se der erro na formatação de texto da data, mantém o original do banco
-        try:
-            df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
-        except:
-            pass
+        
+        # Formata a exibição da tabela com o dia e hora legível em português
+        df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
     else:
         df['furo'] = []
         df['tema'] = []
 else:
     df['furo'] = []
     df['tema'] = []
-    
-# -------------------
-# 2. HEADER CUSTOMIZADO
-# -------------------
-if not df.empty and 'data_coleta' in df.columns:
-    ultima_atualizacao = df['data_coleta'].max()
-    try:
-        dt_coleta = pd.to_datetime(ultima_atualizacao, utc=True).tz_convert('America/Sao_Paulo').tz_localize(None)
-        ultima_atualizacao = dt_coleta.strftime('%H:%M - %d/%m/%Y')
-    except:
-        ultima_atualizacao = "Agora"
-else:
-    ultima_atualizacao = "--:--"
-
-col_tit, col_stat = st.columns([4, 1])
-
-with col_tit:
-    titulo_html = '<h1>Monitor de <span style="color:#4F46E5;">Notícias</span></h1><p style="color:#64748B;font-size:16px;margin-top:-10px;">Análise e clipping competitivo em tempo real.</p>'
-    st.markdown(titulo_html, unsafe_allow_html=True)
-
-with col_stat:
-    status_html = '<div style="text-align: right; padding-top: 10px;"><div style="display: inline-flex; align-items: center; background-color: #ECFDF5; border: 1px solid #10B981; padding: 4px 12px; border-radius: 20px;"><span class="dot-pulsing" style="height: 8px; width: 8px; background-color: #10B981; border-radius: 50%; display: inline-block; margin-right: 8px;"></span><span style="color: #065F46; font-size: 12px; font-weight: 700; text-transform: uppercase;">Sistema Live</span></div><p style="color: #94A3B8; font-size: 11px; margin-top: 8px; font-weight: 500;">Última coleta: ' + ultima_atualizacao + '</p></div>'
-    st.markdown(status_html, unsafe_allow_html=True)
-    
-    st.markdown("""
-        <style>
-        .dot-pulsing {
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-st.markdown("---")
-
 # -------------------
 # 📊 DASHBOARD DE ASSUNTOS
 # -------------------
