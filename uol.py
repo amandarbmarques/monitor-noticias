@@ -3,7 +3,6 @@ import requests
 import html
 import urllib.parse
 from datetime import datetime
-import dateutil.parser
 
 # Puxando o nosso "caminhão de entregas"
 from database import insert_many_news
@@ -53,16 +52,20 @@ def coletar_via_google_news():
                         titulo_limpo = titulo_limpo.rsplit(sep, 1)[0].strip()
                         break
 
+                # ==========================================
+                # O MOTOR DE DATAS CONSERTADO
+                # ==========================================
                 data_iso = None
-                if hasattr(item, "published"):
+                if hasattr(item, "published_parsed") and item.published_parsed:
                     try:
-                        dt = dateutil.parser.parse(item.published)
-                        data_iso = dt.isoformat()
+                        dt = datetime(*item.published_parsed[:6])
+                        data_iso = dt.isoformat() + "+00:00" # Força o fuso UTC correto
                     except:
                         pass
                 
                 if not data_iso:
-                    data_iso = datetime.now().isoformat()
+                    # Se tudo der errado, salva a hora da coleta em UTC
+                    data_iso = datetime.utcnow().isoformat() + "+00:00"
 
                 noticia = {
                     "veiculo": veiculo_encontrado,
@@ -70,10 +73,9 @@ def coletar_via_google_news():
                     "autor": "Redação",
                     "url": item.link,
                     "data_publicacao": data_iso,
-                    "data_coleta": datetime.now().isoformat()
+                    "data_coleta": datetime.utcnow().isoformat() + "+00:00"
                 }
 
-                # Coloca na lista (no caminhão) em vez de ir salvar agora
                 noticias_para_salvar.append(noticia)
 
             except Exception as e:
@@ -81,7 +83,6 @@ def coletar_via_google_news():
                 
         print(f"📦 Hub finalizado. {len(noticias_para_salvar)} notícias separadas. Enviando para o Supabase de uma vez...")
         
-        # Envia TODAS de uma vez só!
         insert_many_news(noticias_para_salvar)
 
     except Exception as e:
