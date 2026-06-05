@@ -356,8 +356,57 @@ if not df.empty:
         edited_df["Selecionar"].tolist()
     )
 
-else:
+# -------------------
+# EXPORTAÇÃO
+# -------------------
 
-    st.info(
-        "Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio."
+selecionadas_df = edited_df[
+    edited_df["Selecionar"] == True
+]
+
+st.markdown("---")
+
+col1, col2 = st.columns(2)
+
+with col1:
+
+    csv_total = (
+        df.drop(columns=["id"], errors="ignore")
+        .to_csv(index=False)
+        .encode("utf-8")
     )
+
+    st.download_button(
+        "📥 Exportar Tudo",
+        csv_total,
+        "clipping_completo.csv",
+        "text/csv",
+        use_container_width=True
+    )
+
+with col2:
+
+    if len(selecionadas_df) > 0:
+
+        csv_sel = (
+            selecionadas_df
+            .drop(columns=["Selecionar"])
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            f"✅ Exportar {len(selecionadas_df)} Selecionadas",
+            csv_sel,
+            "noticias_selecionadas.csv",
+            "text/csv",
+            use_container_width=True
+        )
+
+    else:
+
+        st.button(
+            "✅ Exportar Selecionadas",
+            disabled=True,
+            use_container_width=True
+        )
