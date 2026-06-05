@@ -86,3 +86,9 @@ def insert_many_news(lista_noticias):
             
         conn.commit()
         cursor.close()
+        print(f"🚚 SUCESSO REAL: Lote de {len(lista_noticias)} notícias injetadas de uma vez!")
+    except Exception as e:
+        print(f"❌ ERRO REAL: O banco recusou a inserção do lote. Motivo: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
