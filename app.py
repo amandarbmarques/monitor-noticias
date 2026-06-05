@@ -32,17 +32,28 @@ def calcular_furos_reais(df):
     if df.empty:
         df["furo"] = ""
         return df
-    
+   
     df["furo"] = ""
-    # Usa a nova coluna de data real para achar o primeiro
+    # Analisa do mais antigo para o mais novo
     df = df.sort_values(by='data_dt', ascending=True)
     
-    temas_vistos = set()
+    # Nossas palavras-chave de colisão
+    palavras_chaves_furo = ["flávio", "stf", "moraes"]
+    eventos_vistos = set()
+    
     for index, row in df.iterrows():
-        if row['tema'] not in temas_vistos and row['tema'] != "Outros":
-            df.at[index, 'furo'] = "🥇 Primeiro"
-            temas_vistos.add(row['tema'])
-            
+        titulo_lower = str(row['titulo']).lower()
+        
+        # Testa se alguma das palavras-chave está no título
+        for palavra in palavras_chaves_furo:
+            if palavra in titulo_lower:
+                # Se é o primeiro a falar dessa palavra, ganha o Furo!
+                if palavra not in eventos_vistos:
+                    # Agora a medalha mostra até o motivo do furo
+                    df.at[index, 'furo'] = f"🥇 Primeiro ({palavra.upper()})"
+                    eventos_vistos.add(palavra)
+                break # Já avaliou essa notícia, vai para a próxima
+                
     return df.sort_values(by='data_dt', ascending=False)
 
 # ==========================================
