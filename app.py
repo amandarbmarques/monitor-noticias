@@ -213,6 +213,7 @@ if not df.empty:
     if autores:
         df = df[df["autor"].isin(autores)]
 
+```python
 # -------------------
 # TABELA PRINCIPAL COM SELEÇÃO E EXPORTAÇÃO
 # -------------------
@@ -220,16 +221,14 @@ st.subheader("📋 Clipping de Notícias")
 
 if not df.empty:
 
-    # Dados exibidos
     df_exibicao = df[
         ["veiculo", "titulo", "autor", "url", "data_publicacao"]
     ].copy()
 
-    # Inicializa estado
+    # Inicialização do estado
     if "selecoes_noticias" not in st.session_state:
         st.session_state.selecoes_noticias = [False] * len(df_exibicao)
 
-    # Se o número de linhas mudou após atualização do banco
     if len(st.session_state.selecoes_noticias) != len(df_exibicao):
         st.session_state.selecoes_noticias = [False] * len(df_exibicao)
 
@@ -239,35 +238,15 @@ if not df.empty:
         st.session_state.selecoes_noticias
     )
 
-    # -------------------
-    # CONTROLES SUPERIORES
-    # -------------------
-
-    col_check, col_info = st.columns([1, 3])
-
-    with col_check:
-
-        selecionar_tudo = st.checkbox(
-            "Selecionar todas"
-        )
+    # Checkbox mestre
+    selecionar_tudo = st.checkbox(
+        "Selecionar todas as notícias exibidas"
+    )
 
     if selecionar_tudo:
         df_exibicao["Selecionar"] = True
 
-    qtd_selecionadas = int(
-        df_exibicao["Selecionar"].sum()
-    )
-
-    with col_info:
-
-        st.markdown(
-            f"### 📰 {qtd_selecionadas} notícia(s) selecionada(s)"
-        )
-
-    # -------------------
-    # EXPORTAÇÃO
-    # -------------------
-
+    # Botões de exportação
     col1, col2 = st.columns(2)
 
     with col1:
@@ -288,57 +267,11 @@ if not df.empty:
 
     with col2:
 
-        selecionadas_df = df_exibicao[
-            df_exibicao["Selecionar"] == True
-        ]
-
-        if len(selecionadas_df) > 0:
-
-            csv_sel = (
-                selecionadas_df
-                .drop(columns=["Selecionar"])
-                .to_csv(index=False)
-                .encode("utf-8")
-            )
-
-            st.download_button(
-                f"✅ Exportar {len(selecionadas_df)} Selecionadas",
-                csv_sel,
-                "noticias_selecionadas.csv",
-                "text/csv",
-                use_container_width=True
-            )
-
-        else:
-
-            st.button(
-                "✅ Exportar Selecionadas",
-                disabled=True,
-                use_container_width=True
-            )
+        st.empty()
 
     st.markdown("---")
 
-    # Controle do estado anterior
-if "ultimo_estado_selecionar_todas" not in st.session_state:
-    st.session_state.ultimo_estado_selecionar_todas = False
-
-selecionar_tudo = st.checkbox(
-    "Selecionar todas as notícias exibidas",
-    key="selecionar_todas"
-)
-
-# Só executa quando o checkbox muda
-if selecionar_tudo != st.session_state.ultimo_estado_selecionar_todas:
-
-    df_exibicao["Selecionar"] = selecionar_tudo
-
-    st.session_state.ultimo_estado_selecionar_todas = selecionar_tudo
-    
-    # -------------------
-    # TABELA
-    # -------------------
-
+    # Tabela editável
     edited_df = st.data_editor(
         df_exibicao,
         use_container_width=True,
@@ -346,41 +279,49 @@ if selecionar_tudo != st.session_state.ultimo_estado_selecionar_todas:
         height=900,
         key="editor_noticias",
         column_config={
-            "Selecionar": st.column_config.CheckboxColumn(
-                "✓",
-                help="Selecione notícias para exportação"
-            ),
-            "veiculo": st.column_config.TextColumn(
-                "Fonte",
-                width="small"
-            ),
+            "Selecionar": st.column_config.CheckboxColumn("✓"),
+            "veiculo": st.column_config.TextColumn("Fonte"),
             "titulo": st.column_config.TextColumn(
                 "Notícia (Título)",
                 width="large"
             ),
-            "autor": st.column_config.TextColumn(
-                "Autor",
-                width="medium"
-            ),
-            "data_publicacao": st.column_config.TextColumn(
-                "Horário",
-                width="small"
-            ),
+            "autor": st.column_config.TextColumn("Autor"),
+            "data_publicacao": st.column_config.TextColumn("Horário"),
             "url": st.column_config.LinkColumn(
                 "Link",
-                display_text="Ler Agora",
-                width="small"
+                display_text="Ler Agora"
             )
         }
     )
 
-    # Salva seleção para próximos reruns
     st.session_state.selecoes_noticias = (
         edited_df["Selecionar"].tolist()
     )
+
+    selecionadas_df = edited_df[
+        edited_df["Selecionar"] == True
+    ]
+
+    if len(selecionadas_df) > 0:
+
+        csv_sel = (
+            selecionadas_df
+            .drop(columns=["Selecionar"])
+            .to_csv(index=False)
+            .encode("utf-8")
+        )
+
+        st.download_button(
+            f"✅ Exportar {len(selecionadas_df)} Selecionadas",
+            csv_sel,
+            "noticias_selecionadas.csv",
+            "text/csv",
+            use_container_width=True
+        )
 
 else:
 
     st.info(
         "Nenhum dado encontrado para os filtros aplicados ou banco de dados vazio."
     )
+```
