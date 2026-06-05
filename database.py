@@ -56,5 +56,41 @@ def insert_news(noticia):
         print(f"❌ Erro ao inserir: {e}")
     finally:
         # A MÁGICA ESTÁ AQUI: Garante que a porta será fechada
+
+        def insert_many_news(lista_noticias):
+    """Insere várias notícias no banco em uma única viagem (conexão única)"""
+    if not lista_noticias:
+        return
+        
+    query = """
+    INSERT INTO noticias (veiculo, titulo, autor, url, data_publicacao, data_coleta)
+    VALUES (%s, %s, %s, %s, %s, %s)
+    ON CONFLICT (titulo) DO NOTHING;
+    """
+    
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # O caminhão descarregando tudo de uma vez
+        for noticia in lista_noticias:
+            cursor.execute(query, (
+                noticia["veiculo"],
+                noticia["titulo"],
+                noticia["autor"],
+                noticia["url"],
+                noticia["data_publicacao"],
+                noticia["data_coleta"]
+            ))
+            
+        conn.commit() # Salva tudo
+        cursor.close()
+        print(f"🚚 SUCESSO REAL: Lote de {len(lista_noticias)} notícias injetadas de uma vez!")
+    except Exception as e:
+        print(f"❌ ERRO REAL: O banco recusou a inserção do lote. Motivo: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
         if conn is not None:
             conn.close()
