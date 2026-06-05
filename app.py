@@ -65,8 +65,8 @@ if not df.empty:
 
     # 2. Corte dos últimos 5 dias
     agora = pd.Timestamp.now(tz='America/Sao_Paulo')
-    limite_5_dias = agora - pd.Timedelta(days=5)
-    df = df[df['data_publicacao_dt'] >= limite_5_dias].copy()
+    limite_5_dias = agora - pd.Timedelta(days=30)
+    df = df[df['data_publicacao_dt'] >= limite_30_dias].copy()
 
 # -------------------
 # 🥇 PRIORIDADE 2: INDICADOR DE FUROS (COM CACHE)
