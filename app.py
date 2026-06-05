@@ -96,13 +96,13 @@ def classificar_tema(titulo):
     return "📰 Geral"
 
 # -------------------
-# 1. PROCESSAMENTO DOS DADOS (SUPABASE VIA CONEXÃO DIRETA)
+# 1. PROCESSAMENTO DOS DADOS (SUPABASE VIA POOLER EUA)
 # -------------------
 import psycopg2
 
 try:
-    # URL Direta idêntica com timeout para o Streamlit Cloud não cair
-    DB_URI = "postgresql://postgres:23062011Cf!!04@db.hhfttkctypcgrdwvnhug.supabase.co:5432/postgres?sslmode=require&connect_timeout=10"
+    # A MESMA URL PERFEITA PARA O STREAMLIT LER OS DADOS
+    DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
     
     with psycopg2.connect(DB_URI) as conn:
         df = pd.read_sql("SELECT * FROM noticias", conn)
@@ -110,7 +110,7 @@ except Exception as e:
     st.error(f"Erro ao conectar ao banco na nuvem: {e}")
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
-# O restante do tratamento do seu app.py (fuso, 5 dias, etc) continua exatamente igual!
+# A partir daqui o seu código continua IGUAL:
 if not df.empty:
     df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
     df['data_publicacao_dt'] = df['data_publicacao_dt'].dt.tz_convert('America/Sao_Paulo')
