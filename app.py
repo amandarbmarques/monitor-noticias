@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
+import re
+from rapidfuzz import fuzz
 
 # -------------------
 # Configuração da página
@@ -50,14 +52,51 @@ except:
     df = pd.DataFrame(columns=["id", "veiculo", "titulo", "autor", "url", "data_publicacao", "data_coleta"])
 
 # -------------------
-# Tratamento de Dados Blindado
+# 🥇 PRIORIDADE 2: INDICADOR DE FUROS (FUZZ MATCHING)
 # -------------------
+def limpar_titulo(titulo):
+    titulo = str(titulo).lower()
+    titulo = re.sub(r'[^a-zà-ú0-9 ]', '', titulo)
+    return titulo
+
 if not df.empty:
-    try:
-        df['data_publicacao'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
-        df['data_publicacao'] = df['data_publicacao'].dt.strftime('%d/%m/%Y %H:%M')
-    except:
-        pass
+    # 1. Converter para data real para ordenar cronologicamente (do mais antigo pro mais novo)
+    df['data_publicacao_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce')
+    df = df.sort_values(by='data_publicacao_dt', ascending=True).reset_index(drop=True)
+    
+    pautas_vistas = []
+    status_furo = []
+    
+    # 2. Varrer as notícias para identificar similaridade
+    for idx, row in df.iterrows():
+        tit_limpo = limpar_titulo(row['titulo'])
+        matched = False
+        
+        # Compara com as últimas 150 matérias (janela de tempo) para não pesar o servidor
+        for pauta in reversed(pautas_vistas[-150:]):
+            if fuzz.ratio(tit_limpo, pauta['titulo_limpo']) > 80:
+                matched = True
+                # Verifica se é atualização do próprio veículo ou se seguiu outro
+                if pauta['veiculo'] == row['veiculo']:
+                    status_furo.append("🔄 Atualização")
+                else:
+                    status_furo.append("🥈 Seguiu " + pauta['veiculo'])
+                break
+                
+        if not matched:
+            status_furo.append("🥇 Primeiro")
+            pautas_vistas.append({
+                'titulo_limpo': tit_limpo,
+                'veiculo': row['veiculo']
+            })
+            
+    df['furo'] = status_furo
+    
+    # 3. Reordenar para o painel (do mais novo para o mais antigo) e formatar data
+    df = df.sort_values(by='data_publicacao_dt', ascending=False).reset_index(drop=True)
+    df['data_publicacao'] = df['data_publicacao_dt'].dt.strftime('%d/%m/%Y %H:%M')
+else:
+    df['furo'] = []
 
 # -------------------
 # 📊 PRIORIDADE 1: CLASSIFICAÇÃO AUTOMÁTICA DE TEMAS
@@ -99,7 +138,7 @@ else:
 col_tit, col_stat = st.columns([4, 1])
 
 with col_tit:
-    titulo_html = '<h1>Monitor de <span style="color:#4F46E5;">Notícias</span></h1><p style="color:#64748B;font-size:16px;margin-top:-10px;">Análise e clipping em tempo real dos principais portais brasileiros.</p>'
+    titulo_html = '<h1>Monitor de <span style="color:#4F46E5;">Notícias</span></h1><p style="color:#64748B;font-size:16px;margin-top:-10px;">Análise e clipping competitivo em tempo real.</p>'
     st.markdown(titulo_html, unsafe_allow_html=True)
 
 with col_stat:
@@ -122,7 +161,7 @@ with col_stat:
 st.markdown("---")
 
 # -------------------
-# 📊 6. DASHBOARD DE ASSUNTOS (TOP CONTADORES)
+# 📊 6. DASHBOARD DE ASSUNTOS
 # -------------------
 if not df.empty:
     st.markdown("### 📊 Temas Mais Cobertos")
@@ -136,17 +175,28 @@ if not df.empty:
     st.markdown("###")
 
 # -------------------
-# BARRA LATERAL (Ranking de Autores)
+# BARRA LATERAL (Placares)
 # -------------------
 with st.sidebar:
+    st.header("🏆 Placar de Furos")
+    if not df.empty:
+        furos_df = df[df["furo"] == "🥇 Primeiro"]
+        placar_furos = furos_df["veiculo"].value_counts().reset_index()
+        placar_furos.columns = ["Veículo", "Furos"]
+        st.dataframe(placar_furos, use_container_width=True, hide_index=True)
+    else:
+        st.write("Sem dados de furos.")
+        
+    st.markdown("---")
+    
     st.header("✍️ Ranking de Autores")
     if not df.empty:
         ranking = df["autor"].value_counts().reset_index()
         ranking.columns = ["Autor", "Qtd"]
-        st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=350)
+        st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=250)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v2.0 • Tags de Assunto Ativas")
+    st.caption("v3.0 • Fuzz Matching + Temas")
 
 # -------------------
 # FILTROS E BUSCA
@@ -159,11 +209,11 @@ with st.expander("🔍 Ferramentas de Filtro e Busca", expanded=True):
         opcoes_v = sorted(df["veiculo"].unique()) if not df.empty else []
         veiculos = st.multiselect("Veículos", options=opcoes_v, default=opcoes_v)
     with c3:
-        opcoes_a = sorted(df["autor"].dropna().unique()) if not df.empty else []
-        autores = st.multiselect("Filtrar por Autor", options=opcoes_a)
+        opcoes_f = sorted(df["furo"].unique()) if not df.empty else []
+        filtro_furo = st.multiselect("Status (Furo)", options=opcoes_f)
     with c4:
         opcoes_t = sorted(df["tema"].unique()) if not df.empty else []
-        temas_selecionados = st.multiselect("🏷️ Filtrar por Tema", options=opcoes_t, default=opcoes_t)
+        temas_selecionados = st.multiselect("🏷️ Tema", options=opcoes_t, default=opcoes_t)
 
 # Aplicação dos filtros selecionados
 if not df.empty:
@@ -171,8 +221,8 @@ if not df.empty:
         df = df[df["titulo"].str.contains(busca, case=False, na=False)]
     if veiculos:
         df = df[df["veiculo"].isin(veiculos)]
-    if autores:
-        df = df[df["autor"].isin(autores)]
+    if filtro_furo:
+        df = df[df["furo"].isin(filtro_furo)]
     if temas_selecionados:
         df = df[df["tema"].isin(temas_selecionados)]
 
@@ -182,7 +232,7 @@ if not df.empty:
 st.subheader("📋 Clipping de Notícias")
 
 if not df.empty:
-    df_exibicao = df[["id", "tema", "veiculo", "titulo", "autor", "url", "data_publicacao"]].copy()
+    df_exibicao = df[["id", "furo", "tema", "veiculo", "titulo", "autor", "url", "data_publicacao"]].copy()
 
     if "noticias_selecionadas" not in st.session_state:
         st.session_state.noticias_selecionadas = set()
@@ -197,7 +247,7 @@ if not df.empty:
 
     df_exibicao["Selecionar"] = df_exibicao["id"].apply(lambda x: x in st.session_state.noticias_selecionadas)
 
-    cols = ["Selecionar", "id", "tema", "veiculo", "titulo", "autor", "url", "data_publicacao"]
+    cols = ["Selecionar", "id", "furo", "tema", "veiculo", "titulo", "autor", "url", "data_publicacao"]
     df_exibicao = df_exibicao[cols]
 
     edited_df = st.data_editor(
@@ -209,11 +259,12 @@ if not df.empty:
         column_config={
             "Selecionar": st.column_config.CheckboxColumn("✓"),
             "id": None,
+            "furo": st.column_config.TextColumn("🥇 Status", width="medium"),
             "tema": st.column_config.TextColumn("🏷️ Tema", width="medium"),
-            "veiculo": st.column_config.TextColumn("Fonte"),
+            "veiculo": st.column_config.TextColumn("Fonte", width="small"),
             "titulo": st.column_config.TextColumn("Notícia (Título)", width="large"),
             "autor": st.column_config.TextColumn("Autor"),
-            "url": st.column_config.LinkColumn("Link", display_text="Ler Agora"),
+            "url": st.column_config.LinkColumn("Link", display_text="Ler Agora", width="small"),
             "data_publicacao": st.column_config.TextColumn("Horário")
         }
     )
@@ -230,12 +281,12 @@ if not df.empty:
     col1, col2 = st.columns(2)
 
     with col1:
-        csv_total = df.drop(columns=["id"], errors="ignore").to_csv(index=False).encode("utf-8")
+        csv_total = df.drop(columns=["id", "data_publicacao_dt"], errors="ignore").to_csv(index=False).encode("utf-8")
         st.download_button("📥 Exportar Tudo", csv_total, "clipping_completo.csv", "text/csv", use_container_width=True)
 
     with col2:
         if len(selecionadas_df) > 0:
-            csv_sel = selecionadas_df.drop(columns=["id"], errors="ignore").to_csv(index=False).encode("utf-8")
+            csv_sel = selecionadas_df.drop(columns=["id", "data_publicacao_dt"], errors="ignore").to_csv(index=False).encode("utf-8")
             st.download_button("✅ Exportar " + str(len(selecionadas_df)) + " Selecionadas", csv_sel, "noticias_selecionadas.csv", "text/csv", use_container_width=True)
         else:
             st.button("✅ Exportar Selecionadas", disabled=True, use_container_width=True)
