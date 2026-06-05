@@ -123,7 +123,6 @@ else:
 def classificar_tema(titulo):
     titulo_lower = str(titulo).lower()
     
-    # Colocados em linha única para evitar SyntaxError de quebra de colchetes!
     regras = {
         "⚖️ Judiciário/STF": ["stf", "supremo", "julga", "justiça", "moraes", "tse", "liminar", "tribunal", "ministro do stf", "pauta jurídica"],
         "🏛️ Política": ["lula", "governo", "planalto", "congresso", "senado", "câmara", "ministros", "bolsa família", "partido", "eleição", "votação", "pec"],
@@ -132,7 +131,8 @@ def classificar_tema(titulo):
         "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
     }
     
-    for tema, palavras in reglas.items():
+    # CORRIGIDO DEFINITIVO: de 'reglas' para 'regras'
+    for tema, palavras in regras.items():
         if any(palavra in titulo_lower for palavra in palavras):
             return tema
             
@@ -221,7 +221,7 @@ with st.sidebar:
         st.dataframe(ranking.head(15), use_container_width=True, hide_index=True, height=250)
     else:
         st.write("Nenhum autor mapeado.")
-    st.caption("v5.1 • Correção de Chaves")
+    st.caption("v5.2 • Corrigido Varável Temas")
 
 # -------------------
 # FILTROS E BUSCA
