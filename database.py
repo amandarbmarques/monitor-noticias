@@ -2,8 +2,8 @@ import psycopg2
 from psycopg2.extras import execute_values
 from datetime import datetime
 
-# URL CORRIGIDA: Usuário correto 'postgres' e o ID do projeto no endereço do servidor
-DB_URI = "postgresql://postgres:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?user=postgres.hhfttkctypcgrdwvnhug&sslmode=require"
+# URL DO POOLER 100% NO PADRÃO DIRETO DO SUPABASE
+DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf!!04@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
 def get_connection():
     """Retorna uma conexão limpa com o banco de dados Supabase"""
