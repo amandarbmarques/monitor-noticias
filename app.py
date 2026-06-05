@@ -73,10 +73,26 @@ def classificar_tema(titulo):
         "🚨 Segurança Pública": ["polícia", "pf", "assalto", "crime", "segurança", "preso", "apreensão", "tráfico", "operação policial", "milícia"]
     }
     
-    for tema, palavras in regras.items():
+    for tema, palavras in reggae.items():
         if any(palavra in titulo_lower for palavra in palavras):
             return tema
             
     return "📰 Geral"
 
+# Aplicação da função criando a coluna 'tema' (Alinhamento corrigido fora da função)
 if not df.empty:
+    df["tema"] = df["titulo"].apply(classificar_tema)
+else:
+    df["tema"] = []
+
+# -------------------
+# 2. HEADER CUSTOMIZADO
+# -------------------
+if not df.empty and 'data_coleta' in df.columns:
+    ultima_atualizacao = df['data_coleta'].max()
+    try:
+        ultima_atualizacao = pd.to_datetime(ultima_atualizacao).strftime('%H:%M - %d/%m/%Y')
+    except:
+        ultima_atualizacao = "Agora"
+else:
+    ultima_atual
