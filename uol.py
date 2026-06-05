@@ -3,6 +3,7 @@ import requests
 import html
 import urllib.parse
 from datetime import datetime
+import time
 from database import insert_many_news
 
 def coletar_via_google_news():
@@ -20,8 +21,6 @@ def coletar_via_google_news():
         veiculos_alvo = ["UOL", "Folha de S.Paulo", "Estadão", "CNN Brasil", "JOTA", "Poder360", "G1", "O Globo", "Valor Econômico"]
         noticias_para_salvar = []
         
-        print("🕵️ INICIANDO INVESTIGAÇÃO DAS DATAS DO GOOGLE...")
-        
         for item in rss.entries:
             try:
                 titulo_completo = html.unescape(item.title)
@@ -32,25 +31,31 @@ def coletar_via_google_news():
                 
                 titulo_limpo = titulo_completo.rsplit(" - ", 1)[0].strip() if " - " in titulo_completo else titulo_completo
 
-                # Pega a data EXATAMENTE como o Google manda
-                data_google = item.get("published", "❌ GOOGLE NÃO MANDOU DATA")
+                # =======================================================
+                # 🛠️ CONVERSOR DE DATA SEGURO (MÁGICA ACONTECE AQUI)
+                # =======================================================
+                data_iso = None
+                if hasattr(item, "published_parsed") and item.published_parsed:
+                    # Transforma a estrutura do Google em uma data real do Python
+                    dt = datetime.fromtimestamp(time.mktime(item.published_parsed))
+                    data_iso = dt.strftime('%Y-%m-%d %H:%M:%S') # Formato perfeito que o banco AMA
                 
-                # Imprime no log para a gente ver!
-                print(f"📰 {veiculo_encontrado} | {titulo_limpo[:30]}... | DATA: {data_google}")
+                if not data_iso:
+                    data_iso = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
                 noticia = {
                     "veiculo": veiculo_encontrado,
                     "titulo": titulo_limpo,
                     "autor": "Redação",
                     "url": item.link,
-                    "data_publicacao": data_google, # Vai salvar o texto puro
-                    "data_coleta": datetime.utcnow().isoformat() + "+00:00"
+                    "data_publicacao": data_iso, 
+                    "data_coleta": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 noticias_para_salvar.append(noticia)
             except:
                 continue
                 
-        print(f"📦 Enviando {len(noticias_para_salvar)} notícias para o banco...")
+        print(f"📦 Enviando {len(noticias_para_salvar)} notícias filtradas para o Supabase...")
         insert_many_news(noticias_para_salvar)
 
     except Exception as e:
