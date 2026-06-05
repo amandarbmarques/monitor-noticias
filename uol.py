@@ -1,73 +1,80 @@
 import feedparser
 import requests
 import html
+import urllib.parse
 from datetime import datetime
-from author import get_author
 from database import insert_news
 
-def coletar_uol():
-    # URL MODERNA E ATIVA: Feed de tempo real do UOL Notícias
-    url_feed = "https://noticias.uol.com.br/feed/index.xml"
+def coletar_via_google_news():
+    # Buscaremos por termos chave que englobam as pautas dos grandes portais brasileiros
+    termo_busca = "Lula OR governo OR STF OR economia OR política"
+    termo_codificado = urllib.parse.quote(termo_busca)
+    
+    # URL do feed oficial do Google News Brasil configurado para o fuso local
+    url_feed = f"https://news.google.com/rss/search?q={termo_codificado}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/rss+xml, application/xml, text/xml"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
 
+    print("📡 Conectando ao hub do Google News...")
     try:
-        print(f"Tentando conectar ao novo feed do UOL...")
         resposta = requests.get(url_feed, headers=headers, timeout=15)
-        
-        if resposta.status_code != 200:
-            print(f"❌ UOL rejeitou o acesso (Status: {resposta.status_code})")
-            return
-
-        # Passa o conteúdo de texto para o feedparser analisar
         rss = feedparser.parse(resposta.text)
 
         if not rss.entries:
-            print("⚠️ O feed foi lido, mas a estrutura XML veio vazia ou incompatível.")
+            print("❌ O hub do Google também retornou vazio (Inprovável).")
             return
 
-        print(f"Conectado! Processando {len(rss.entries)} potenciais notícias do UOL...")
+        print(f"🔥 Sucesso! Encontramos {len(rss.entries)} notícias quentes no hub.")
         
-        contador_salvas = 0
-        for item in rss.entries:
+        contador = 0
+        for item in rss.entries[:40]: # Limita nas 40 mais recentes para não pesar
             try:
-                # Sanitiza o título contra caracteres especiais de HTML
-                titulo_limpo = html.unescape(item.title).strip()
-                link_limpo = item.link.split("?")[0] # Remove parâmetros de rastreamento da URL
+                titulo_completo = html.unescape(item.title)
+                
+                # O Google News formata o título assim: "Título da Matéria - Nome do Veículo"
+                # Vamos separar o título do veículo para manter seu Placar de Furos perfeito!
+                if " - " in titulo_completo:
+                    partes = titulo_completo.rsplit(" - ", 1)
+                    titulo_limpo = partes[0].strip()
+                    veiculo = partes[1].strip()
+                else:
+                    titulo_limpo = titulo_completo
+                    veiculo = "Google News"
 
-                autor = get_author(link_limpo)
+                # Filtra para focar apenas nos veículos que você monitora
+                veiculos_alvo = ["UOL", "Folha de S.Paulo", "Estadão", "CNN Brasil", "JOTA", "Poder360", "G1"]
+                # Se o veículo não estiver explicitamente na lista, chamamos de "Outros" ou aceitamos todos
+                if not any(v.lower() in veiculo.lower() for v in veiculos_alvo):
+                    # Se quiser aceitar qualquer veículo do Brasil, comente a linha abaixo
+                    continue 
 
-                # Trata a estrutura de data do parser
                 if hasattr(item, "published_parsed") and item.published_parsed:
                     data_iso = datetime(*item.published_parsed[:6]).isoformat()
-                elif hasattr(item, "updated_parsed") and item.updated_parsed:
-                    data_iso = datetime(*item.updated_parsed[:6]).isoformat()
                 else:
                     data_iso = datetime.now().isoformat()
 
                 noticia = {
-                    "veiculo": "UOL",
+                    "veiculo": veiculo,
                     "titulo": titulo_limpo,
-                    "autor": autor if autor else "Redação UOL",
-                    "url": link_limpo,
+                    "autor": "Redação",
+                    "url": item.link,
                     "data_publicacao": data_iso,
                     "data_coleta": datetime.now().isoformat()
                 }
 
                 insert_news(noticia)
-                print(f"✅ Salvo UOL: {titulo_limpo}")
-                contador_salvas += 1
-                
+                print(f"✅ [Hub] Salvo {veiculo}: {titulo_limpo}")
+                contador += 1
+
             except Exception as e:
                 continue
+                
+        print(f"🏁 Coleta via Hub finalizada. {contador} novas notícias injetadas no banco!")
 
-        print(f"🏁 Coleta do UOL concluída! {contador_salvas} notícias processadas.")
-
-except Exception as e:
-    print(f"❌ Erro crítico na rotina do UOL: {e}")
+    except Exception as e:
+        print(f"❌ Erro na conexão com o Hub: {e}")
 
 if __name__ == "__main__":
-    coletar_uol()
+    coletar_via_google_news()
