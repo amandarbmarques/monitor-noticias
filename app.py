@@ -14,76 +14,105 @@ st.set_page_config(
 )
 
 # ==========================================
-# CSS CUSTOMIZADO - MINIMALISTA
+# CSS CUSTOMIZADO - GRID LAYOUT
 # ==========================================
 st.markdown("""
     <style>
-    /* News item - compacto */
-    .news-item {
-        background: white;
-        border-left: 4px solid #2E7D32;
-        padding: 12px 16px;
-        margin-bottom: 8px;
-        border-radius: 6px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        transition: all 0.2s ease;
-    }
-    
-    .news-item:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    }
-    
-    .news-item.furo {
-        border-left: 4px solid #F57C00;
-        background: linear-gradient(90deg, rgba(245,124,0,0.03) 0%, white 10%);
-    }
-    
-    /* Grid de informações */
-    .news-row {
+    /* Container do grid */
+    .news-grid {
         display: grid;
-        grid-template-columns: 2.5fr 1fr 1.2fr 1fr 0.8fr auto;
-        gap: 12px;
-        align-items: center;
-        font-size: 0.95em;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
     }
     
-    .news-titulo {
-        font-weight: 600;
-        color: #1A1A1A;
-        line-height: 1.3;
+    /* Card individual */
+    .news-card {
+        background: white;
+        border-radius: 10px;
+        padding: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        border-top: 4px solid #2E7D32;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 220px;
     }
     
-    .news-veiculo {
-        color: #2E7D32;
-        font-weight: 600;
-        font-size: 0.9em;
+    .news-card:hover {
+        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        transform: translateY(-4px);
     }
     
-    .news-data {
-        color: #999;
-        font-size: 0.9em;
+    .news-card.furo {
+        border-top: 4px solid #F57C00;
+        background: linear-gradient(135deg, rgba(245,124,0,0.03) 0%, white 100%);
     }
     
-    .news-autor {
-        color: #666;
-        font-size: 0.9em;
-    }
-    
-    .news-link {
-        text-decoration: none;
-        color: #2E7D32;
-        font-weight: 600;
-        font-size: 0.9em;
-        white-space: nowrap;
-    }
-    
-    .badge-primeiro {
+    .news-card.furo .badge-primeiro {
+        display: inline-block;
         background: #FFF3CD;
         color: #856404;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-size: 0.8em;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75em;
         font-weight: 700;
+        margin-bottom: 8px;
+    }
+    
+    /* Título */
+    .card-titulo {
+        font-weight: 700;
+        font-size: 0.95em;
+        color: #1A1A1A;
+        line-height: 1.35;
+        margin-bottom: 12px;
+        flex-grow: 1;
+    }
+    
+    /* Info */
+    .card-info {
+        font-size: 0.85em;
+        color: #666;
+        margin-bottom: 8px;
+    }
+    
+    .card-veiculo {
+        font-weight: 700;
+        color: #2E7D32;
+        font-size: 0.9em;
+        margin-bottom: 6px;
+    }
+    
+    .card-data {
+        color: #999;
+        font-size: 0.8em;
+    }
+    
+    .card-autor {
+        color: #999;
+        font-size: 0.8em;
+    }
+    
+    /* Link */
+    .card-link {
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid #E0E0E0;
+    }
+    
+    .card-link a {
+        display: inline-block;
+        color: #2E7D32;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9em;
+        transition: color 0.2s;
+    }
+    
+    .card-link a:hover {
+        color: #1B5E20;
     }
     
     /* Header */
@@ -103,7 +132,7 @@ st.markdown("""
         color: #999;
     }
     
-    /* Metrics compactas */
+    /* Metrics */
     .metrics-row {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
@@ -129,24 +158,6 @@ st.markdown("""
         font-size: 0.8em;
         color: #999;
         margin-top: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    /* Filter section */
-    .filter-box {
-        background: white;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    
-    .filter-label {
-        font-weight: 700;
-        color: #2E7D32;
-        font-size: 0.85em;
-        margin-bottom: 8px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
@@ -328,28 +339,37 @@ if not df.empty:
     st.divider()
     
     # ==========================================
-    # NOTÍCIAS - CARDS COMPACTOS
+    # NOTÍCIAS - GRID LAYOUT
     # ==========================================
     st.markdown("### 📌 Notícias")
     
+    # Cria o HTML do grid
+    grid_html = '<div class="news-grid">'
+    
     for index, row in df_filtrado.iterrows():
-        classe = "news-item furo" if row['furo'] == '🥇' else "news-item"
-        badge = '<span class="badge-primeiro">🥇 PRIMEIRO</span>' if row['furo'] == '🥇' else ''
+        classe = "news-card furo" if row['furo'] == '🥇' else "news-card"
+        badge = '<div class="badge-primeiro">🥇 PRIMEIRO</div>' if row['furo'] == '🥇' else ''
         
-        st.markdown(f"""
+        # Limita título a ~50 caracteres
+        titulo_exibido = row['titulo'][:55] + '...' if len(row['titulo']) > 55 else row['titulo']
+        
+        grid_html += f"""
             <div class="{classe}">
-                <div class="news-row">
-                    <div>
-                        <div class="news-titulo">{row['titulo'][:100]}...</div>
-                    </div>
-                    <div class="news-veiculo">{row['veiculo']}</div>
-                    <div class="news-data">{row['data_formatada']}</div>
-                    <div class="news-autor">{row['autor']}</div>
-                    <div>{badge}</div>
-                    <div><a href="{row['url']}" target="_blank" class="news-link">🔗</a></div>
+                {badge}
+                <div class="card-titulo">{titulo_exibido}</div>
+                <div class="card-info">
+                    <div class="card-veiculo">{row['veiculo']}</div>
+                    <div class="card-data">📅 {row['data_formatada']}</div>
+                    <div class="card-autor">✍️ {row['autor']}</div>
+                </div>
+                <div class="card-link">
+                    <a href="{row['url']}" target="_blank">🔗 Abrir</a>
                 </div>
             </div>
-        """, unsafe_allow_html=True)
+        """
+    
+    grid_html += '</div>'
+    st.markdown(grid_html, unsafe_allow_html=True)
 
 else:
     st.warning("⚠️ Nenhuma notícia carregada.")
