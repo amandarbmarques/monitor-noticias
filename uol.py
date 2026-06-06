@@ -7,38 +7,26 @@ import time
 import re
 from database import insert_many_news
 
-# 🔴 TESTE: Se você vê isso, o arquivo CORRETO está rodando!
 print("\n" + "="*80)
-print("🔴 ARQUIVO uol_teste_simples.py INICIADO COM SUCESSO!")
+print("🔴 ARQUIVO uol_debug_insert.py INICIADO!")
 print("="*80 + "\n")
 
 def extrair_data_publicacao(item, numero_item=0):
-    """Extrai data com muitos prints para debugar"""
-    
-    print(f"\n{'─'*80}")
-    print(f"ITEM #{numero_item} - Extraindo data...")
-    print(f"{'─'*80}")
+    """Extrai data com debug"""
     
     titulo = item.title if hasattr(item, "title") else "SEM TÍTULO"
-    print(f"📰 Título: {titulo[:100]}...\n")
     
-    # 1️⃣ ESTRATÉGIA 1: published_parsed
-    print(f"1️⃣  Tentando 'published_parsed'...", end=" ")
+    # 1️⃣ published_parsed
     if hasattr(item, "published_parsed") and item.published_parsed:
         try:
             dt = datetime.fromtimestamp(time.mktime(item.published_parsed))
             resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"✅ SUCESSO! {resultado}")
             return resultado
-        except Exception as e:
-            print(f"❌ Erro: {e}")
-    else:
-        print(f"❌ Campo vazio ou não existe")
+        except:
+            pass
     
-    # 2️⃣ ESTRATÉGIA 2: published (string)
-    print(f"2️⃣  Tentando 'published' (string)...", end=" ")
+    # 2️⃣ published (string)
     if hasattr(item, "published") and item.published:
-        print(f"(valor: '{item.published}')")
         formatos = [
             '%a, %d %b %Y %H:%M:%S %Z',
             '%a, %d %b %Y %H:%M:%S GMT',
@@ -49,34 +37,23 @@ def extrair_data_publicacao(item, numero_item=0):
             try:
                 dt = datetime.strptime(item.published, fmt)
                 resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
-                print(f"   ✅ SUCESSO com formato '{fmt}': {resultado}")
                 return resultado
             except:
                 pass
-        print(f"   ❌ Nenhum formato funcionou")
-    else:
-        print(f"❌ Campo vazio ou não existe")
     
-    # 3️⃣ ESTRATÉGIA 3: updated_parsed
-    print(f"3️⃣  Tentando 'updated_parsed'...", end=" ")
+    # 3️⃣ updated_parsed
     if hasattr(item, "updated_parsed") and item.updated_parsed:
         try:
             dt = datetime.fromtimestamp(time.mktime(item.updated_parsed))
             resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"✅ SUCESSO! {resultado}")
             return resultado
-        except Exception as e:
-            print(f"❌ Erro: {e}")
-    else:
-        print(f"❌ Campo vazio ou não existe")
+        except:
+            pass
     
-    # 4️⃣ ESTRATÉGIA 4: Summary
-    print(f"4️⃣  Procurando em 'summary'...", end=" ")
+    # 4️⃣ Summary
     if hasattr(item, "summary") and item.summary:
         summary_limpo = html.unescape(item.summary)
         summary_limpo = re.sub(r'<[^>]+>', '', summary_limpo)
-        print(f"('{summary_limpo[:80]}...')")
-        
         match = re.search(r'há (\d+)\s+(horas?|minutos?|dias?)', summary_limpo, re.IGNORECASE)
         if match:
             quantidade = int(match.group(1))
@@ -89,15 +66,9 @@ def extrair_data_publicacao(item, numero_item=0):
             elif 'dia' in unidade:
                 dt = agora - timedelta(days=quantidade)
             resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"   ✅ SUCESSO! Encontrado '{quantidade} {unidade}' atrás: {resultado}")
             return resultado
-        else:
-            print(f"   ❌ Nenhum padrão 'há X tempo' encontrado")
-    else:
-        print(f"❌ Campo vazio ou não existe")
     
-    # 5️⃣ ESTRATÉGIA 5: Title
-    print(f"5️⃣  Procurando em 'title'...", end=" ")
+    # 5️⃣ Title
     if hasattr(item, "title") and item.title:
         title = item.title.lower()
         match = re.search(r'há (\d+)\s+(horas?|h|minutos?|min|dias?|d)\s+atrás', title)
@@ -112,43 +83,26 @@ def extrair_data_publicacao(item, numero_item=0):
             elif 'dia' in unidade or 'd' == unidade:
                 dt = agora - timedelta(days=quantidade)
             resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"✅ SUCESSO! {resultado}")
             return resultado
-        else:
-            print(f"❌ Nenhum padrão encontrado")
-    else:
-        print(f"❌ Campo vazio ou não existe")
     
-    # FALHA
-    print(f"\n🚨 NENHUMA ESTRATÉGIA FUNCIONOU! Será usado fallback (data de coleta)")
     return None
 
 def coletar_via_google_news():
-    print("\n" + "="*80)
-    print("🚛 INICIANDO O HUB DO GOOGLE NEWS (VERSÃO COM DEBUG)")
-    print("="*80)
-    
     termo_busca = "Lula OR governo OR STF OR economia OR política"
     termo_codificado = urllib.parse.quote(termo_busca)
     url_feed = f"https://news.google.com/rss/search?q={termo_codificado}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
     headers = {"User-Agent": "Mozilla/5.0"}
     
     try:
-        print(f"\n📡 Conectando ao Google News...")
         resposta = requests.get(url_feed, headers=headers, timeout=15)
-        print(f"✅ Conectado! Status: {resposta.status_code}\n")
-        
         rss = feedparser.parse(resposta.text)
-        print(f"📊 Total de entradas encontradas: {len(rss.entries)}\n")
         
         if not rss.entries: 
-            print("❌ Nenhuma entrada encontrada!")
             return
         
         veiculos_alvo = ["UOL", "Folha de S.Paulo", "Estadão", "CNN Brasil", "JOTA", "Poder360", "G1", "O Globo", "Valor Econômico"]
         noticias_para_salvar = []
         
-        # PROCESSAMENTO COM DEBUG
         for idx, item in enumerate(rss.entries):
             try:
                 titulo_completo = html.unescape(item.title)
@@ -156,18 +110,24 @@ def coletar_via_google_news():
                 veiculo_encontrado = next((v for v in veiculos_alvo if v.lower() in veiculo_origem.lower() or v.lower() in titulo_completo.lower()), None)
                 
                 if not veiculo_encontrado:
-                    print(f"❌ REJEITADO: Veículo '{veiculo_origem}' não está na lista\n")
                     continue
                 
                 titulo_limpo = titulo_completo.rsplit(" - ", 1)[0].strip() if " - " in titulo_completo else titulo_completo
                 
-                # EXTRAI DATA COM DEBUG COMPLETO
+                # EXTRAI DATA
                 data_publicacao = extrair_data_publicacao(item, idx)
                 
-                # Fallback
                 if not data_publicacao:
                     data_publicacao = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    print(f"⚠️  Usando fallback (data de coleta): {data_publicacao}\n")
+                
+                # 🔍 DEBUG: MOSTRA O QUE VAI SER SALVO
+                print(f"\n{'─'*80}")
+                print(f"NOTÍCIA #{len(noticias_para_salvar) + 1}")
+                print(f"{'─'*80}")
+                print(f"Veículo: {veiculo_encontrado}")
+                print(f"Título: {titulo_limpo[:80]}...")
+                print(f"📅 DATA_PUBLICACAO (ANTES DE SALVAR): {data_publicacao}")
+                print(f"🕐 DATA_COLETA (AGORA): {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
                 
                 noticia = {
                     "veiculo": veiculo_encontrado,
@@ -177,23 +137,38 @@ def coletar_via_google_news():
                     "data_publicacao": data_publicacao,
                     "data_coleta": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
+                
+                print(f"\n📦 DICT QUE SERÁ SALVO:")
+                for chave, valor in noticia.items():
+                    print(f"   {chave}: {valor}")
+                
                 noticias_para_salvar.append(noticia)
-                print(f"✅ ACEITO: {veiculo_encontrado} - {titulo_limpo[:60]}...\n")
                 
             except Exception as e:
-                print(f"❌ ERRO ao processar item: {e}\n")
+                print(f"❌ ERRO: {e}")
                 continue
         
-        # RESUMO
+        # 🔍 DEBUG: ANTES DE CHAMAR INSERT
         print("\n" + "="*80)
-        print(f"📊 RESUMO FINAL")
+        print(f"🔍 DEBUG: ANTES DE CHAMAR insert_many_news()")
         print("="*80)
-        print(f"✅ Notícias ACEITAS: {len(noticias_para_salvar)}")
-        print(f"📦 Salvando no Supabase...\n")
+        print(f"Total de notícias a salvar: {len(noticias_para_salvar)}\n")
+        
+        # Mostra as primeiras 3 notícias que vão ser salvas
+        for i, noticia in enumerate(noticias_para_salvar[:3]):
+            print(f"Notícia #{i+1}:")
+            print(f"  data_publicacao: {noticia['data_publicacao']}")
+            print(f"  data_coleta: {noticia['data_coleta']}")
+            print()
+        
+        # CHAMA A FUNÇÃO DE INSERT
+        print("\n" + "="*80)
+        print("📤 CHAMANDO insert_many_news()...")
+        print("="*80 + "\n")
         
         insert_many_news(noticias_para_salvar)
-        print(f"🚚 SUCESSO! {len(noticias_para_salvar)} notícias injetadas!")
-        print("="*80 + "\n")
+        
+        print(f"\n✅ Função insert_many_news() retornou com sucesso!")
         
     except Exception as e:
         print(f"❌ ERRO GERAL: {e}")
