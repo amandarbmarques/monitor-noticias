@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# CSS CUSTOMIZADO - MINIMALISTA
+# CSS CUSTOMIZADO
 # ==========================================
 st.markdown("""
     <style>
@@ -23,6 +23,14 @@ st.markdown("""
         padding: 12px;
         border-radius: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    .card-clicavel {
+        cursor: pointer;
+    }
+    
+    .card-clicavel:hover {
+        opacity: 0.95;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -102,6 +110,12 @@ def carregar_dados():
         return pd.DataFrame()
 
 # ==========================================
+# INICIALIZAR SESSION STATE
+# ==========================================
+if 'card_expandido' not in st.session_state:
+    st.session_state.card_expandido = None
+
+# ==========================================
 # CARREGAR E PROCESSAR
 # ==========================================
 df = carregar_dados()
@@ -114,6 +128,7 @@ if not df.empty:
     df['data_dt'] = df['data_dt'].fillna(pd.Timestamp.now(tz='UTC'))
     df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
     df['data_formatada'] = df['data_dt'].dt.strftime('%d/%m %H:%M')
+    df['hora_publicacao'] = df['data_dt'].dt.strftime('%H:%M')
     
     # Temas
     df["tema"] = df["titulo"].apply(classificar_tema)
@@ -176,7 +191,7 @@ if not df.empty:
     # HEADER
     # ==========================================
     st.title("📰 Monitor de Notícias")
-    st.markdown("Monitoramento de publicações e furos jornalísticos")
+    st.markdown("Clique em qualquer card para ver outros veículos que publicaram sobre o mesmo tema")
     
     # Métricas
     col1, col2, col3, col4 = st.columns(4)
@@ -199,7 +214,7 @@ if not df.empty:
     st.divider()
     
     # ==========================================
-    # NOTÍCIAS - GRID LAYOUT COM COLUNAS
+    # NOTÍCIAS - GRID LAYOUT
     # ==========================================
     st.markdown("### 📌 Notícias")
     
@@ -209,74 +224,94 @@ if not df.empty:
     
     for index, row in df_filtrado.iterrows():
         with cols[col_idx % 3]:
-            # Container do card
-            if row['furo'] == '🥇':
-                st.markdown(
-                    f"""
-                    <div style="
-                        background: linear-gradient(135deg, rgba(245,124,0,0.1) 0%, white 100%);
-                        border-left: 4px solid #F57C00;
-                        border-radius: 8px;
-                        padding: 16px;
-                        margin-bottom: 16px;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    ">
-                        <div style="color: #F57C00; font-weight: 700; font-size: 0.8em; margin-bottom: 8px;">
-                            🥇 PRIMEIRO
-                        </div>
-                        <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px;">
-                            {row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
-                        </div>
-                        <div style="font-size: 0.85em; color: #666;">
-                            <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
-                            <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
-                            <div style="color: #999;">✍️ {row['autor']}</div>
-                        </div>
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #E0E0E0;">
-                            <a href="{row['url']}" target="_blank" style="
-                                color: #2E7D32;
-                                text-decoration: none;
-                                font-weight: 600;
-                                font-size: 0.9em;
-                            ">🔗 Abrir notícia</a>
-                        </div>
+            # ID único para cada card
+            card_id = f"card_{index}"
+            
+            # Badge do furo (sem cor no card)
+            badge = "🥇 " if row['furo'] == '🥇' else ""
+            
+            st.markdown(
+                f"""
+                <div class="card-clicavel" style="
+                    background: white;
+                    border-left: 4px solid #2E7D32;
+                    border-radius: 8px;
+                    padding: 16px;
+                    margin-bottom: 16px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                " onclick="document.getElementById('{card_id}').click()">
+                    <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px;">
+                        {badge}{row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
                     </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-            else:
-                st.markdown(
-                    f"""
-                    <div style="
-                        background: white;
-                        border-left: 4px solid #2E7D32;
-                        border-radius: 8px;
-                        padding: 16px;
-                        margin-bottom: 16px;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    ">
-                        <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px;">
-                            {row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
-                        </div>
-                        <div style="font-size: 0.85em; color: #666;">
-                            <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
-                            <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
-                            <div style="color: #999;">✍️ {row['autor']}</div>
-                        </div>
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #E0E0E0;">
-                            <a href="{row['url']}" target="_blank" style="
-                                color: #2E7D32;
-                                text-decoration: none;
-                                font-weight: 600;
-                                font-size: 0.9em;
-                            ">🔗 Abrir notícia</a>
-                        </div>
+                    <div style="font-size: 0.85em; color: #666;">
+                        <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
+                        <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
+                        <div style="color: #999;">✍️ {row['autor']}</div>
                     </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #E0E0E0;">
+                        <a href="{row['url']}" target="_blank" style="
+                            color: #2E7D32;
+                            text-decoration: none;
+                            font-weight: 600;
+                            font-size: 0.9em;
+                        ">🔗 Abrir notícia</a>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
+            # Button invisível para expandir (clica no markdown)
+            if st.button("ℹ️ Ver similares", key=card_id, use_container_width=True):
+                st.session_state.card_expandido = index
+    
+    # ==========================================
+    # EXPANSÃO - MOSTRAR NOTÍCIAS SIMILARES
+    # ==========================================
+    if st.session_state.card_expandido is not None:
+        noticia_selecionada = df_filtrado.iloc[st.session_state.card_expandido]
+        grupo = noticia_selecionada['grupo_noticia']
         
-        col_idx += 1
+        # Busca outras notícias do mesmo grupo
+        noticias_grupo = df[df['grupo_noticia'] == grupo].sort_values('data_dt')
+        
+        st.divider()
+        
+        with st.expander("📰 Outros veículos que publicaram sobre este tema", expanded=True):
+            st.markdown(f"### Tema: {noticia_selecionada['titulo'][:80]}")
+            st.markdown(f"**Total de publicações:** {len(noticias_grupo)} veículos")
+            
+            st.markdown("---")
+            
+            # Timeline
+            for idx, noticia in noticias_grupo.iterrows():
+                primeiro = "🥇 **PRIMEIRO A PUBLICAR**" if noticia['furo'] == '🥇' else ""
+                
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"""
+                    **{noticia['veiculo']}** {primeiro}
+                    
+                    {noticia['titulo']}
+                    
+                    Autor: {noticia['autor']} | [🔗 Abrir]({noticia['url']})
+                    """)
+                
+                with col2:
+                    st.markdown(f"""
+                    **{noticia['hora_publicacao']}**
+                    
+                    {noticia['data_formatada'].split()[0]}
+                    """)
+                
+                st.markdown("---")
+        
+        # Botão para fechar
+        if st.button("✕ Fechar", key="btn_fechar"):
+            st.session_state.card_expandido = None
 
 else:
     st.warning("⚠️ Nenhuma notícia carregada.")
