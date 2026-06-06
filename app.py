@@ -14,26 +14,10 @@ st.set_page_config(
 )
 
 # ==========================================
-# CSS CUSTOMIZADO
+# INICIALIZAR SESSION STATE
 # ==========================================
-st.markdown("""
-    <style>
-    .stMetric {
-        background-color: #f8f9fa;
-        padding: 12px;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    
-    .card-clicavel {
-        cursor: pointer;
-    }
-    
-    .card-clicavel:hover {
-        opacity: 0.95;
-    }
-    </style>
-""", unsafe_allow_html=True)
+if 'card_expandido' not in st.session_state:
+    st.session_state.card_expandido = None
 
 # ==========================================
 # FUNÇÕES
@@ -108,12 +92,6 @@ def carregar_dados():
     except Exception as e:
         st.error(f"❌ Erro: {e}")
         return pd.DataFrame()
-
-# ==========================================
-# INICIALIZAR SESSION STATE
-# ==========================================
-if 'card_expandido' not in st.session_state:
-    st.session_state.card_expandido = None
 
 # ==========================================
 # CARREGAR E PROCESSAR
@@ -214,92 +192,72 @@ if not df.empty:
     st.divider()
     
     # ==========================================
-    # NOTÍCIAS - GRID LAYOUT
+    # NOTÍCIAS - GRID 3 COLUNAS
     # ==========================================
     st.markdown("### 📌 Notícias")
     
-    # Cria grid com 3 colunas
-    cols = st.columns(3)
-    col_idx = 0
+    # Renderiza cards em grid de 3 colunas
+    df_filtrado_reset = df_filtrado.reset_index(drop=True)
     
-    for index, row in df_filtrado.iterrows():
-        with cols[col_idx % 3]:
-            # ID único para cada card
-            card_id = f"card_{index}"
-            
-            # Verifica se tem similares
-            grupo = row['grupo_noticia']
-            noticias_grupo = df[df['grupo_noticia'] == grupo]
-            tem_similares = len(noticias_grupo) > 1
-            
-            # Badge do furo (sem cor no card)
-            badge = "🥇 " if row['furo'] == '🥇' else ""
-            
-            # HTML do botão (só mostra se tem similares)
-            botao_html = ""
-            if tem_similares:
-                botao_html = f"""
-                <div style="margin-top: 12px;">
-                    <button style="
-                        width: 100%;
-                        padding: 8px;
-                        background: #2E7D32;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        font-weight: 600;
-                        font-size: 0.9em;
-                        cursor: pointer;
-                        transition: background 0.2s;
-                    " onmouseover="this.style.background='#1B5E20'" onmouseout="this.style.background='#2E7D32'">
-                        ℹ️ Ver similares ({len(noticias_grupo)})
-                    </button>
-                </div>
-                """
-            
-            st.markdown(
-                f"""
-                <div class="card-clicavel" style="
-                    background: white;
-                    border-left: 4px solid #2E7D32;
-                    border-radius: 8px;
-                    padding: 16px;
-                    margin-bottom: 16px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    transition: all 0.2s ease;
-                ">
-                    <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px;">
-                        {badge}{row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
-                    </div>
-                    <div style="font-size: 0.85em; color: #666;">
-                        <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
-                        <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
-                        <div style="color: #999;">✍️ {row['autor']}</div>
-                    </div>
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #E0E0E0;">
-                        <a href="{row['url']}" target="_blank" style="
-                            color: #2E7D32;
-                            text-decoration: none;
-                            font-weight: 600;
-                            font-size: 0.9em;
-                        ">🔗 Abrir notícia</a>
-                    </div>
-                    {botao_html}
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
-            # Button invisível para expandir
-            if tem_similares:
-                if st.button("🔽", key=card_id, help="Ver similares"):
-                    st.session_state.card_expandido = index
+    for i in range(0, len(df_filtrado_reset), 3):
+        cols = st.columns(3)
+        
+        for j in range(3):
+            if i + j < len(df_filtrado_reset):
+                row = df_filtrado_reset.iloc[i + j]
+                index = df_filtrado_reset.index[i + j]
+                
+                with cols[j]:
+                    # Verifica similares
+                    grupo = row['grupo_noticia']
+                    noticias_grupo = df[df['grupo_noticia'] == grupo]
+                    tem_similares = len(noticias_grupo) > 1
+                    
+                    # Badge
+                    badge = "🥇 " if row['furo'] == '🥇' else ""
+                    
+                    # Card
+                    st.markdown(f"""
+                        <div style="
+                            background: white;
+                            border-left: 4px solid #2E7D32;
+                            border-radius: 8px;
+                            padding: 16px;
+                            margin-bottom: 16px;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                            min-height: 200px;
+                            display: flex;
+                            flex-direction: column;
+                        ">
+                            <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px; flex-grow: 1;">
+                                {badge}{row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
+                            </div>
+                            <div style="font-size: 0.85em; color: #666; margin-bottom: 12px;">
+                                <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
+                                <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
+                                <div style="color: #999;">✍️ {row['autor']}</div>
+                            </div>
+                            <div style="padding-top: 12px; border-top: 1px solid #E0E0E0;">
+                                <a href="{row['url']}" target="_blank" style="
+                                    color: #2E7D32;
+                                    text-decoration: none;
+                                    font-weight: 600;
+                                    font-size: 0.9em;
+                                ">🔗 Abrir notícia</a>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Botão (só aparece se tem similares)
+                    if tem_similares:
+                        if st.button(f"ℹ️ Ver similares ({len(noticias_grupo)})", key=f"btn_{i}_{j}"):
+                            st.session_state.card_expandido = index
     
     # ==========================================
     # EXPANSÃO - MOSTRAR NOTÍCIAS SIMILARES
     # ==========================================
     if st.session_state.card_expandido is not None:
-        noticia_selecionada = df_filtrado.iloc[st.session_state.card_expandido]
+        noticia_selecionada = df_filtrado.loc[st.session_state.card_expandido]
         grupo = noticia_selecionada['grupo_noticia']
         
         # Busca outras notícias do mesmo grupo
@@ -338,7 +296,7 @@ if not df.empty:
                 st.markdown("---")
         
         # Botão para fechar
-        if st.button("✕ Fechar", key="btn_fechar"):
+        if st.button("✕ Fechar expansão"):
             st.session_state.card_expandido = None
 
 else:
