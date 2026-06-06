@@ -1,48 +1,58 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
-from datetime import datetime
 
 st.set_page_config(page_title="Monitor de Notícias", page_icon="📰", layout="wide", initial_sidebar_state="expanded")
+
+st.markdown("""
+    <style>
+    .card-wrapper {
+        margin-bottom: 16px;
+    }
+    .card-com-botao {
+        border-bottom: none;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+    .botao-dentro {
+        margin-top: -8px;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        border-top: 1px solid #E0E0E0;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 if 'modal_aberto' not in st.session_state:
     st.session_state.modal_aberto = None
 
-# ==========================================
-# FUNÇÕES
-# ==========================================
 def classificar_tema(titulo):
     if not isinstance(titulo, str):
         return "Geral"
     t = titulo.lower()
     if any(x in t for x in ["lula", "governo", "stf", "política", "congresso", "senado", "flávio", "moraes"]):
         return "Política"
-    if any(x in t for x in ["economia", "dólar", "mercado", "juros", "haddad", "imposto", "tarifa", "investimento"]):
+    if any(x in t for x in ["economia", "dólar", "mercado", "juros", "haddad"]):
         return "Economia"
-    if any(x in t for x in ["tecnologia", "ia", "google", "meta", "facebook", "amazon", "apple"]):
-        return "Tech"
     return "Geral"
 
 def extrair_palavras_chave(titulo, n=5):
-    stop_words = {"a", "o", "e", "de", "da", "do", "em", "para", "por", "que", "é", "um", "uma", "os", "as", "dos", "das"}
+    stop_words = {"a", "o", "e", "de", "da", "do", "em", "para", "por", "que", "é", "um", "uma", "os", "as"}
     palavras = titulo.lower().split()
     return [p for p in palavras if p not in stop_words and len(p) > 3][:n]
 
-def calcular_furos_inteligentes(df):
+def calcular_furos(df):
     if df.empty:
         df["furo"] = ""
         return df
-    
     df = df.sort_values(by='data_dt', ascending=True).reset_index(drop=True)
     df["furo"] = ""
     df["grupo_noticia"] = None
-    
     grupos_vistos = {}
     
     for index, row in df.iterrows():
         titulo = str(row['titulo']).lower()
         palavras_atuais = set(extrair_palavras_chave(titulo))
-        
         melhor_grupo = None
         melhor_score = 0
         
@@ -50,7 +60,6 @@ def calcular_furos_inteligentes(df):
             interseccao = len(palavras_atuais & palavras_grupo)
             uniao = len(palavras_atuais | palavras_grupo)
             score = interseccao / uniao if uniao > 0 else 0
-            
             if score > 0.5 and score > melhor_score:
                 melhor_score = score
                 melhor_grupo = grupo_id
@@ -59,7 +68,6 @@ def calcular_furos_inteligentes(df):
             melhor_grupo = len(grupos_vistos)
             grupos_vistos[melhor_grupo] = palavras_atuais
             df.at[index, 'furo'] = "🥇"
-        
         df.at[index, 'grupo_noticia'] = melhor_grupo
     
     return df.sort_values(by='data_dt', ascending=False)
@@ -76,9 +84,6 @@ def carregar_dados():
         st.error(f"❌ Erro: {e}")
         return pd.DataFrame()
 
-# ==========================================
-# CARREGAR E PROCESSAR
-# ==========================================
 df = carregar_dados()
 
 if not df.empty:
@@ -88,33 +93,19 @@ if not df.empty:
     df['data_dt'] = df['data_dt'].fillna(pd.Timestamp.now(tz='UTC'))
     df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
     df['data_formatada'] = df['data_dt'].dt.strftime('%d/%m %H:%M')
-    df['hora_publicacao'] = df['data_dt'].dt.strftime('%H:%M')
-    
     df["tema"] = df["titulo"].apply(classificar_tema)
-    df = calcular_furos_inteligentes(df)
+    df = calcular_furos(df)
     
-    # ==========================================
-    # SIDEBAR
-    # ==========================================
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/2965/2965879.png", width=50)
         st.title("🔍 Filtros")
-        
-        busca = st.text_input("🔎 Buscar...", placeholder="Ex: Lula, economia...")
+        busca = st.text_input("🔎 Buscar...", placeholder="Ex: Lula")
         veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
         veiculos_selecionados = st.multiselect("📰 Veículos", veiculos_disponiveis, default=veiculos_disponiveis[:5])
         temas_selecionados = st.multiselect("🏷️ Temas", sorted(df['tema'].unique()), default=sorted(df['tema'].unique()))
-        mostrar_furos = st.checkbox("🥇 Apenas furos", value=False)
-        
         st.divider()
-        st.markdown("### 📊 Stats")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Total", len(df))
-        with col2:
-            st.metric("Furos", len(df[df['furo'] == '🥇']))
+        st.metric("Total", len(df))
     
-    # Filtrar dados
     df_filtrado = df.copy()
     if busca:
         df_filtrado = df_filtrado[df_filtrado['titulo'].str.contains(busca, case=False, na=False)]
@@ -122,26 +113,14 @@ if not df.empty:
         df_filtrado = df_filtrado[df_filtrado['veiculo'].isin(veiculos_selecionados)]
     if temas_selecionados:
         df_filtrado = df_filtrado[df_filtrado['tema'].isin(temas_selecionados)]
-    if mostrar_furos:
-        df_filtrado = df_filtrado[df_filtrado['furo'] == '🥇']
     
-    # ==========================================
-    # HEADER
-    # ==========================================
     st.title("📰 Monitor de Notícias")
-    st.markdown("Clique em 'Ver similares' para ver outros veículos que publicaram sobre o mesmo tema")
-    
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     col1.metric("Notícias", len(df_filtrado))
-    col2.metric("Furos", len(df_filtrado[df_filtrado['furo'] == '🥇']))
-    col3.metric("Veículos", df_filtrado['veiculo'].nunique())
-    col4.metric("Temas", df_filtrado['tema'].nunique())
-    
+    col2.metric("Veículos", df_filtrado['veiculo'].nunique())
+    col3.metric("Temas", df_filtrado['tema'].nunique())
     st.divider()
     
-    # ==========================================
-    # NOTÍCIAS - GRID 3 COLUNAS
-    # ==========================================
     st.markdown("### 📌 Notícias")
     
     df_filtrado_reset = df_filtrado.reset_index(drop=True)
@@ -160,72 +139,58 @@ if not df.empty:
                     tem_similares = len(noticias_grupo) > 1
                     badge = "🥇 " if row['furo'] == '🥇' else ""
                     
-                    # Card
+                    # CARD MESMO
                     st.markdown(f"""
-                        <div style="
-                            background: white;
-                            border-left: 4px solid #2E7D32;
-                            border-radius: 8px;
-                            padding: 16px;
-                            margin-bottom: 8px;
-                            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                            min-height: 140px;
-                            display: flex;
-                            flex-direction: column;
-                        ">
+                        <div style="background: white; border-left: 4px solid #2E7D32; border-radius: 8px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 140px; display: flex; flex-direction: column;">
                             <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px; flex-grow: 1;">
-                                {badge}{row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
+                                {badge}{row['titulo'][:60]}
                             </div>
-                            <div style="font-size: 0.85em; color: #666; margin-bottom: 12px;">
+                            <div style="font-size: 0.85em; color: #666;">
                                 <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
                                 <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
                                 <div style="color: #999;">✍️ {row['autor']}</div>
                             </div>
-                            <div style="padding-top: 12px; border-top: 1px solid #E0E0E0;">
-                                <a href="{row['url']}" target="_blank" style="color: #2E7D32; text-decoration: none; font-weight: 600; font-size: 0.9em;">🔗 Abrir notícia</a>
+                            <div style="padding-top: 12px; border-top: 1px solid #E0E0E0; margin-top: auto;">
+                                <a href="{row['url']}" target="_blank" style="color: #2E7D32; text-decoration: none; font-weight: 600; font-size: 0.9em;">🔗 Abrir</a>
                             </div>
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # Botão
+                    # BOTÃO SEPARADO MAS VISUALMENTE LIGADO
                     if tem_similares:
-                        if st.button(f"ℹ️ Ver similares ({len(noticias_grupo)})", key=f"btn_{card_id}", use_container_width=True):
-                            st.session_state.modal_aberto = card_id
+                        col_btn1, col_btn2, col_btn3 = st.columns([0.1, 0.8, 0.1])
+                        with col_btn2:
+                            if st.button(f"ℹ️ Ver similares ({len(noticias_grupo)})", key=f"btn_{card_id}", use_container_width=True):
+                                st.session_state.modal_aberto = card_id
     
-    # ==========================================
-    # POPUP MODAL
-    # ==========================================
+    # POPUP
     if st.session_state.modal_aberto is not None:
         try:
             noticia_selecionada = df_filtrado_reset.iloc[st.session_state.modal_aberto]
             grupo = noticia_selecionada['grupo_noticia']
             noticias_grupo = df[df['grupo_noticia'] == grupo].sort_values('data_dt')
             
-            with st.expander(f"📰 Outros veículos que publicaram: '{noticia_selecionada['titulo'][:60]}...'", expanded=True):
-                st.markdown(f"**Total:** {len(noticias_grupo)} veículos publicaram sobre este tema")
+            st.markdown("---")
+            st.markdown(f"### 📰 **{noticia_selecionada['titulo'][:80]}**")
+            st.markdown(f"**{len(noticias_grupo)} veículos** publicaram sobre este tema:")
+            st.markdown("---")
+            
+            for idx, noticia in noticias_grupo.iterrows():
+                primeiro = " 🥇 **PRIMEIRO**" if noticia['furo'] == '🥇' else ""
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"**{noticia['veiculo']}**{primeiro}")
+                    st.write(noticia['titulo'])
+                    st.markdown(f"[🔗 Abrir]({noticia['url']}) | {noticia['autor']}")
+                with col2:
+                    st.write(f"**{noticia['data_formatada'].split()[1]}**")
                 st.markdown("---")
-                
-                for idx, noticia in noticias_grupo.iterrows():
-                    primeiro = " 🥇 **PRIMEIRO A PUBLICAR**" if noticia['furo'] == '🥇' else ""
-                    
-                    col1, col2 = st.columns([3, 1])
-                    
-                    with col1:
-                        st.markdown(f"### {noticia['veiculo']}{primeiro}")
-                        st.markdown(f"**{noticia['titulo']}**")
-                        st.markdown(f"Autor: {noticia['autor']} | [🔗 Abrir]({noticia['url']})")
-                    
-                    with col2:
-                        st.markdown(f"**{noticia['hora_publicacao']}**")
-                        st.markdown(f"_{noticia['data_formatada'].split()[0]}_")
-                    
-                    st.markdown("---")
-                
-                if st.button("✕ Fechar", key="btn_fechar_modal"):
-                    st.session_state.modal_aberto = None
-                    st.rerun()
-        except:
+            
+            if st.button("✕ Fechar popup"):
+                st.session_state.modal_aberto = None
+                st.rerun()
+        except Exception as e:
+            st.error(f"Erro: {e}")
             st.session_state.modal_aberto = None
-
 else:
-    st.warning("⚠️ Nenhuma notícia carregada.")
+    st.warning("⚠️ Nenhuma notícia.")
