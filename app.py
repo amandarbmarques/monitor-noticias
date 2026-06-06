@@ -41,7 +41,7 @@ st.markdown("""
     /* Grid de informações */
     .news-row {
         display: grid;
-        grid-template-columns: 2fr 1fr 1.5fr 1fr 0.8fr auto;
+        grid-template-columns: 2.5fr 1fr 1.2fr 1fr 0.8fr auto;
         gap: 12px;
         align-items: center;
         font-size: 0.95em;
@@ -64,14 +64,9 @@ st.markdown("""
         font-size: 0.9em;
     }
     
-    .news-tema {
-        display: inline-block;
-        background: #E3F2FD;
-        color: #1565C0;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.85em;
-        font-weight: 600;
+    .news-autor {
+        color: #666;
+        font-size: 0.9em;
     }
     
     .news-link {
@@ -349,7 +344,7 @@ if not df.empty:
                     </div>
                     <div class="news-veiculo">{row['veiculo']}</div>
                     <div class="news-data">{row['data_formatada']}</div>
-                    <div class="news-tema">{row['tema']}</div>
+                    <div class="news-autor">{row['autor']}</div>
                     <div>{badge}</div>
                     <div><a href="{row['url']}" target="_blank" class="news-link">🔗</a></div>
                 </div>
