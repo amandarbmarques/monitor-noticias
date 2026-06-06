@@ -291,8 +291,9 @@ if not df.empty:
             )
             
             # Button invisível para expandir
-            if tem_similares and st.button("Ver similares", key=card_id, label_visibility="collapsed"):
-                st.session_state.card_expandido = index
+            if tem_similares:
+                if st.button("🔽", key=card_id, help="Ver similares"):
+                    st.session_state.card_expandido = index
     
     # ==========================================
     # EXPANSÃO - MOSTRAR NOTÍCIAS SIMILARES
