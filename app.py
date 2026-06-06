@@ -191,7 +191,7 @@ if not df.empty:
     # HEADER
     # ==========================================
     st.title("📰 Monitor de Notícias")
-    st.markdown("Clique em qualquer card para ver outros veículos que publicaram sobre o mesmo tema")
+    st.markdown("Clique em 'Ver similares' para ver outros veículos que publicaram sobre o mesmo tema")
     
     # Métricas
     col1, col2, col3, col4 = st.columns(4)
@@ -227,8 +227,35 @@ if not df.empty:
             # ID único para cada card
             card_id = f"card_{index}"
             
+            # Verifica se tem similares
+            grupo = row['grupo_noticia']
+            noticias_grupo = df[df['grupo_noticia'] == grupo]
+            tem_similares = len(noticias_grupo) > 1
+            
             # Badge do furo (sem cor no card)
             badge = "🥇 " if row['furo'] == '🥇' else ""
+            
+            # HTML do botão (só mostra se tem similares)
+            botao_html = ""
+            if tem_similares:
+                botao_html = f"""
+                <div style="margin-top: 12px;">
+                    <button style="
+                        width: 100%;
+                        padding: 8px;
+                        background: #2E7D32;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-weight: 600;
+                        font-size: 0.9em;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    " onmouseover="this.style.background='#1B5E20'" onmouseout="this.style.background='#2E7D32'">
+                        ℹ️ Ver similares ({len(noticias_grupo)})
+                    </button>
+                </div>
+                """
             
             st.markdown(
                 f"""
@@ -239,9 +266,8 @@ if not df.empty:
                     padding: 16px;
                     margin-bottom: 16px;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    cursor: pointer;
                     transition: all 0.2s ease;
-                " onclick="document.getElementById('{card_id}').click()">
+                ">
                     <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px;">
                         {badge}{row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
                     </div>
@@ -258,13 +284,14 @@ if not df.empty:
                             font-size: 0.9em;
                         ">🔗 Abrir notícia</a>
                     </div>
+                    {botao_html}
                 </div>
                 """,
                 unsafe_allow_html=True
             )
             
-            # Button invisível para expandir (clica no markdown)
-            if st.button("ℹ️ Ver similares", key=card_id, use_container_width=True):
+            # Button invisível para expandir
+            if tem_similares and st.button("Ver similares", key=card_id, label_visibility="collapsed"):
                 st.session_state.card_expandido = index
     
     # ==========================================
