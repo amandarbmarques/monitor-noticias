@@ -216,16 +216,16 @@ if not df.empty:
                     # Badge
                     badge = "🥇 " if row['furo'] == '🥇' else ""
                     
-                    # Card
+                    # Card HTML
                     st.markdown(f"""
                         <div style="
                             background: white;
                             border-left: 4px solid #2E7D32;
                             border-radius: 8px;
                             padding: 16px;
-                            margin-bottom: 16px;
+                            margin-bottom: 8px;
                             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                            min-height: 200px;
+                            min-height: 140px;
                             display: flex;
                             flex-direction: column;
                         ">
@@ -250,8 +250,8 @@ if not df.empty:
                     
                     # Botão (só aparece se tem similares)
                     if tem_similares:
-                        if st.button(f"ℹ️ Ver similares ({len(noticias_grupo)})", key=f"btn_{i}_{j}"):
-                            st.session_state.card_expandido = index
+                        if st.button(f"ℹ️ Ver similares ({len(noticias_grupo)})", key=f"btn_{i}_{j}", use_container_width=True):
+                            st.session_state.card_expandido = i + j
     
     # ==========================================
     # EXPANSÃO - MOSTRAR NOTÍCIAS SIMILARES
