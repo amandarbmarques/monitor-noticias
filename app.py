@@ -207,58 +207,74 @@ if not df.empty:
                         if st.button(f"ℹ️ Ver similares ({len(noticias_grupo)})", key=f"btn_{card_id}", use_container_width=True):
                             st.session_state.modal_aberto = card_id
     
-    # POPUP FLUTUANTE
-    if st.session_state.modal_aberto is not None:
-        try:
-            noticia_selecionada = df_filtrado_reset.iloc[st.session_state.modal_aberto]
-            grupo = noticia_selecionada['grupo_noticia']
-            noticias_grupo = df[df['grupo_noticia'] == grupo].sort_values('data_dt')
-            
-            # Constrói HTML do modal
-            modal_content = f"""
-            <div class="modal-title">📰 {noticia_selecionada['titulo'][:80]}</div>
-            <p><strong>{len(noticias_grupo)} veículos</strong> publicaram sobre este tema</p>
-            <hr style="margin: 20px 0; border: none; border-top: 1px solid #E0E0E0;">
-            """
-            
-            for idx, noticia in noticias_grupo.iterrows():
-                primeiro = 'primeiro' if noticia['furo'] == '🥇' else ''
-                primeiro_texto = "🥇 <strong>PRIMEIRO A PUBLICAR</strong>" if noticia['furo'] == '🥇' else ""
-                
-                modal_content += f"""
-                <div class="modal-item {primeiro}">
-                    <div style="font-weight: 700; font-size: 1.05em; margin-bottom: 8px;">
-                        {noticia['veiculo']} {primeiro_texto}
-                    </div>
-                    <div style="font-weight: 600; margin-bottom: 8px; color: #1A1A1A;">
-                        {noticia['titulo']}
-                    </div>
-                    <div style="font-size: 0.9em; color: #666; margin-bottom: 8px;">
-                        📅 {noticia['data_formatada']} | ✍️ {noticia['autor']}
-                    </div>
-                    <a href="{noticia['url']}" target="_blank" style="color: #2E7D32; text-decoration: none; font-weight: 600;">
-                        🔗 Abrir notícia
-                    </a>
-                </div>
-                """
-            
-            st.markdown(f"""
-                <div class="modal-overlay" id="modal" onclick="if(event.target.id==='modal') document.getElementById('modal').remove();">
-                    <div class="modal-popup">
-                        <button class="modal-close" onclick="document.getElementById('modal').remove();">&times;</button>
-                        {modal_content}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Botão em Streamlit para fechar (fallback)
-            col1, col2, col3 = st.columns([1, 1, 1])
-            with col2:
-                if st.button("❌ Fechar popup"):
-                    st.session_state.modal_aberto = None
-                    st.rerun()
-        except Exception as e:
-            st.error(f"Erro: {e}")
-            st.session_state.modal_aberto = None
-else:
-    st.warning("⚠️ Nenhuma notícia.")
+   # POPUP NATIVO STREAMLIT
+if st.session_state.modal_aberto is not None:
+
+    try:
+
+        noticia_selecionada = df_filtrado_reset.iloc[
+            st.session_state.modal_aberto
+        ]
+
+        grupo = noticia_selecionada["grupo_noticia"]
+
+        noticias_grupo = (
+            df[df["grupo_noticia"] == grupo]
+            .sort_values("data_dt")
+        )
+
+        @st.dialog("📰 Veículos que publicaram esta pauta")
+        def mostrar_dialog():
+
+            st.markdown(
+                f"### {noticia_selecionada['titulo']}"
+            )
+
+            st.caption(
+                f"{len(noticias_grupo)} veículos publicaram sobre este tema"
+            )
+
+            st.divider()
+
+            for _, noticia in noticias_grupo.iterrows():
+
+                if noticia["furo"] == "🥇":
+
+                    st.success(
+                        f"🥇 {noticia['veiculo']} — PRIMEIRO A PUBLICAR"
+                    )
+
+                else:
+
+                    st.info(
+                        noticia["veiculo"]
+                    )
+
+                st.write(
+                    noticia["titulo"]
+                )
+
+                st.caption(
+                    f"📅 {noticia['data_formatada']} | ✍️ {noticia['autor']}"
+                )
+
+                st.link_button(
+                    "🔗 Abrir notícia",
+                    noticia["url"]
+                )
+
+                st.divider()
+
+            if st.button(
+                "Fechar",
+                use_container_width=True
+            ):
+                st.session_state.modal_aberto = None
+                st.rerun()
+
+        mostrar_dialog()
+
+    except Exception as e:
+
+        st.error(f"Erro: {e}")
+        st.session_state.modal_aberto = None
