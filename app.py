@@ -14,152 +14,15 @@ st.set_page_config(
 )
 
 # ==========================================
-# CSS CUSTOMIZADO - GRID LAYOUT
+# CSS CUSTOMIZADO - MINIMALISTA
 # ==========================================
 st.markdown("""
     <style>
-    /* Container do grid */
-    .news-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 16px;
-        margin-bottom: 20px;
-    }
-    
-    /* Card individual */
-    .news-card {
-        background: white;
-        border-radius: 10px;
-        padding: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-        border-top: 4px solid #2E7D32;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        min-height: 220px;
-    }
-    
-    .news-card:hover {
-        box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-        transform: translateY(-4px);
-    }
-    
-    .news-card.furo {
-        border-top: 4px solid #F57C00;
-        background: linear-gradient(135deg, rgba(245,124,0,0.03) 0%, white 100%);
-    }
-    
-    .news-card.furo .badge-primeiro {
-        display: inline-block;
-        background: #FFF3CD;
-        color: #856404;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.75em;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }
-    
-    /* Título */
-    .card-titulo {
-        font-weight: 700;
-        font-size: 0.95em;
-        color: #1A1A1A;
-        line-height: 1.35;
-        margin-bottom: 12px;
-        flex-grow: 1;
-    }
-    
-    /* Info */
-    .card-info {
-        font-size: 0.85em;
-        color: #666;
-        margin-bottom: 8px;
-    }
-    
-    .card-veiculo {
-        font-weight: 700;
-        color: #2E7D32;
-        font-size: 0.9em;
-        margin-bottom: 6px;
-    }
-    
-    .card-data {
-        color: #999;
-        font-size: 0.8em;
-    }
-    
-    .card-autor {
-        color: #999;
-        font-size: 0.8em;
-    }
-    
-    /* Link */
-    .card-link {
-        margin-top: auto;
-        padding-top: 12px;
-        border-top: 1px solid #E0E0E0;
-    }
-    
-    .card-link a {
-        display: inline-block;
-        color: #2E7D32;
-        text-decoration: none;
-        font-weight: 600;
-        font-size: 0.9em;
-        transition: color 0.2s;
-    }
-    
-    .card-link a:hover {
-        color: #1B5E20;
-    }
-    
-    /* Header */
-    .header {
-        margin-bottom: 24px;
-    }
-    
-    .header-title {
-        font-size: 2em;
-        font-weight: 800;
-        color: #1A1A1A;
-        margin-bottom: 4px;
-    }
-    
-    .header-subtitle {
-        font-size: 0.95em;
-        color: #999;
-    }
-    
-    /* Metrics */
-    .metrics-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
-        margin-bottom: 20px;
-    }
-    
-    .metric-box {
-        background: white;
+    .stMetric {
+        background-color: #f8f9fa;
         padding: 12px;
         border-radius: 8px;
-        text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    
-    .metric-number {
-        font-size: 1.8em;
-        font-weight: 800;
-        color: #2E7D32;
-    }
-    
-    .metric-label {
-        font-size: 0.8em;
-        color: #999;
-        margin-top: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     </style>
 """, unsafe_allow_html=True)
@@ -312,64 +175,108 @@ if not df.empty:
     # ==========================================
     # HEADER
     # ==========================================
-    st.markdown('<div class="header"><div class="header-title">📰 Monitor de Notícias</div><div class="header-subtitle">Monitoramento de publicações e furos jornalísticos</div></div>', unsafe_allow_html=True)
+    st.title("📰 Monitor de Notícias")
+    st.markdown("Monitoramento de publicações e furos jornalísticos")
     
     # Métricas
-    st.markdown(f"""
-        <div class="metrics-row">
-            <div class="metric-box">
-                <div class="metric-number">{len(df_filtrado)}</div>
-                <div class="metric-label">Notícias</div>
-            </div>
-            <div class="metric-box">
-                <div class="metric-number" style="color: #F57C00;">{len(df_filtrado[df_filtrado['furo'] == '🥇'])}</div>
-                <div class="metric-label">Furos</div>
-            </div>
-            <div class="metric-box">
-                <div class="metric-number" style="color: #1565C0;">{df_filtrado['veiculo'].nunique()}</div>
-                <div class="metric-label">Veículos</div>
-            </div>
-            <div class="metric-box">
-                <div class="metric-number" style="color: #6A1B9A;">{df_filtrado['tema'].nunique()}</div>
-                <div class="metric-label">Temas</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Notícias", len(df_filtrado))
+    
+    with col2:
+        furos = len(df_filtrado[df_filtrado['furo'] == '🥇'])
+        st.metric("Furos", furos)
+    
+    with col3:
+        veiculos = df_filtrado['veiculo'].nunique()
+        st.metric("Veículos", veiculos)
+    
+    with col4:
+        temas_unicos = df_filtrado['tema'].nunique()
+        st.metric("Temas", temas_unicos)
     
     st.divider()
     
     # ==========================================
-    # NOTÍCIAS - GRID LAYOUT
+    # NOTÍCIAS - GRID LAYOUT COM COLUNAS
     # ==========================================
     st.markdown("### 📌 Notícias")
     
-    # Cria o HTML do grid
-    grid_html = '<div class="news-grid">'
+    # Cria grid com 3 colunas
+    cols = st.columns(3)
+    col_idx = 0
     
     for index, row in df_filtrado.iterrows():
-        classe = "news-card furo" if row['furo'] == '🥇' else "news-card"
-        badge = '<div class="badge-primeiro">🥇 PRIMEIRO</div>' if row['furo'] == '🥇' else ''
+        with cols[col_idx % 3]:
+            # Container do card
+            if row['furo'] == '🥇':
+                st.markdown(
+                    f"""
+                    <div style="
+                        background: linear-gradient(135deg, rgba(245,124,0,0.1) 0%, white 100%);
+                        border-left: 4px solid #F57C00;
+                        border-radius: 8px;
+                        padding: 16px;
+                        margin-bottom: 16px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    ">
+                        <div style="color: #F57C00; font-weight: 700; font-size: 0.8em; margin-bottom: 8px;">
+                            🥇 PRIMEIRO
+                        </div>
+                        <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px;">
+                            {row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
+                        </div>
+                        <div style="font-size: 0.85em; color: #666;">
+                            <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
+                            <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
+                            <div style="color: #999;">✍️ {row['autor']}</div>
+                        </div>
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #E0E0E0;">
+                            <a href="{row['url']}" target="_blank" style="
+                                color: #2E7D32;
+                                text-decoration: none;
+                                font-weight: 600;
+                                font-size: 0.9em;
+                            ">🔗 Abrir notícia</a>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    f"""
+                    <div style="
+                        background: white;
+                        border-left: 4px solid #2E7D32;
+                        border-radius: 8px;
+                        padding: 16px;
+                        margin-bottom: 16px;
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    ">
+                        <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px;">
+                            {row['titulo'][:60]}{'...' if len(row['titulo']) > 60 else ''}
+                        </div>
+                        <div style="font-size: 0.85em; color: #666;">
+                            <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
+                            <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
+                            <div style="color: #999;">✍️ {row['autor']}</div>
+                        </div>
+                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #E0E0E0;">
+                            <a href="{row['url']}" target="_blank" style="
+                                color: #2E7D32;
+                                text-decoration: none;
+                                font-weight: 600;
+                                font-size: 0.9em;
+                            ">🔗 Abrir notícia</a>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
         
-        # Limita título a ~50 caracteres
-        titulo_exibido = row['titulo'][:55] + '...' if len(row['titulo']) > 55 else row['titulo']
-        
-        grid_html += f"""
-            <div class="{classe}">
-                {badge}
-                <div class="card-titulo">{titulo_exibido}</div>
-                <div class="card-info">
-                    <div class="card-veiculo">{row['veiculo']}</div>
-                    <div class="card-data">📅 {row['data_formatada']}</div>
-                    <div class="card-autor">✍️ {row['autor']}</div>
-                </div>
-                <div class="card-link">
-                    <a href="{row['url']}" target="_blank">🔗 Abrir</a>
-                </div>
-            </div>
-        """
-    
-    grid_html += '</div>'
-    st.markdown(grid_html, unsafe_allow_html=True)
+        col_idx += 1
 
 else:
     st.warning("⚠️ Nenhuma notícia carregada.")
