@@ -187,7 +187,7 @@ if not df.empty:
                     
                     # CARD
                     st.markdown(f"""
-                        <div style="background: white; border-left: 4px solid #2E7D32; border-radius: 8px; padding: 16px; margin-bottom: 0px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 140px; display: flex; flex-direction: column;">
+                        <div style="background: white; border-left: 4px solid #2E7D32; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 140px; display: flex; flex-direction: column;">
                             <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px; flex-grow: 1;">
                                 {badge}{row['titulo'][:60]}
                             </div>
