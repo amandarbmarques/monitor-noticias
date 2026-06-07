@@ -171,100 +171,93 @@ if not df.empty:
     
     df_filtrado_reset = df_filtrado.reset_index(drop=True)
     
-    for i in range(0, len(df_filtrado_reset), 3):
-        cols = st.columns(3)
-        
-        for j in range(3):
-            if i + j < len(df_filtrado_reset):
-                row = df_filtrado_reset.iloc[i + j]
-                card_id = i + j
-                
-                with cols[j]:
-                    grupo = row['grupo_noticia']
-                    noticias_grupo = df[df['grupo_noticia'] == grupo]
-                    tem_similares = len(noticias_grupo) > 1
-                    badge = "🥇 " if row['furo'] == '🥇' else ""
-                    
-                    # CARD
-                    st.markdown(f"""
-                        <div style="background: white; border-left: 4px solid #2E7D32; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); min-height: 140px; display: flex; flex-direction: column;">
-                            <div style="font-weight: 700; font-size: 0.95em; line-height: 1.35; color: #1A1A1A; margin-bottom: 12px; flex-grow: 1;">
-                                {badge}{row['titulo'][:60]}
+  for i in range(0, len(df_filtrado_reset), 3):
+
+    cols = st.columns(3)
+
+    for j in range(3):
+
+        if i + j < len(df_filtrado_reset):
+
+            row = df_filtrado_reset.iloc[i + j]
+            card_id = i + j
+
+            grupo = row["grupo_noticia"]
+            noticias_grupo = df[df["grupo_noticia"] == grupo]
+
+            tem_similares = len(noticias_grupo) > 1
+            badge = "🥇 " if row["furo"] == "🥇" else ""
+
+            with cols[j]:
+
+                st.markdown(
+                    f"""
+                    <div style="
+                        background:white;
+                        border-left:4px solid #2E7D32;
+                        border-radius:8px;
+                        padding:16px;
+                        margin-bottom:16px;
+                        box-shadow:0 2px 8px rgba(0,0,0,0.1);
+                        min-height:180px;
+                    ">
+                        <div style="
+                            font-weight:700;
+                            font-size:0.95em;
+                            line-height:1.35;
+                            color:#1A1A1A;
+                            margin-bottom:12px;
+                        ">
+                            {badge}{row['titulo'][:80]}
+                        </div>
+
+                        <div style="
+                            font-size:0.85em;
+                            color:#666;
+                            margin-bottom:12px;
+                        ">
+                            <div style="
+                                color:#2E7D32;
+                                font-weight:700;
+                            ">
+                                {row['veiculo']}
                             </div>
-                            <div style="font-size: 0.85em; color: #666;">
-                                <div style="color: #2E7D32; font-weight: 700; margin-bottom: 4px;">{row['veiculo']}</div>
-                                <div style="color: #999; margin-bottom: 2px;">📅 {row['data_formatada']}</div>
-                                <div style="color: #999;">✍️ {row['autor']}</div>
+
+                            <div>
+                                📅 {row['data_formatada']}
                             </div>
-                            <div style="padding-top: 12px; border-top: 1px solid #E0E0E0; margin-top: auto;">
-                                <a href="{row['url']}" target="_blank" style="color: #2E7D32; text-decoration: none; font-weight: 600; font-size: 0.9em;">🔗 Abrir</a>
+
+                            <div>
+                                ✍️ {row['autor']}
                             </div>
                         </div>
-                    """, unsafe_allow_html=True)
-                    
-                 with cols[j]:
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-    st.markdown(f"""
-        <div style="
-            background:white;
-            border-left:4px solid #2E7D32;
-            border-radius:8px;
-            padding:16px;
-            margin-bottom:16px;
-            box-shadow:0 2px 8px rgba(0,0,0,0.1);
-            min-height:140px;
-        ">
-            <div style="
-                font-weight:700;
-                font-size:0.95em;
-                line-height:1.35;
-                color:#1A1A1A;
-                margin-bottom:12px;
-            ">
-                {badge}{row['titulo'][:60]}
-            </div>
+                c1, c2 = st.columns(2)
 
-            <div style="
-                font-size:0.85em;
-                color:#666;
-                margin-bottom:12px;
-            ">
-                <div style="
-                    color:#2E7D32;
-                    font-weight:700;
-                ">
-                    {row['veiculo']}
-                </div>
+                with c1:
 
-                <div>
-                    📅 {row['data_formatada']}
-                </div>
+                    st.link_button(
+                        "🔗 Abrir",
+                        row["url"],
+                        use_container_width=True
+                    )
 
-                <div>
-                    ✍️ {row['autor']}
-                </div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+                with c2:
 
-    c1, c2 = st.columns(2)
+                    if tem_similares:
 
-    with c1:
-        st.link_button(
-            "🔗 Abrir",
-            row["url"],
-            use_container_width=True
-        )
+                        if st.button(
+                            f"📚 Similares ({len(noticias_grupo)})",
+                            key=f"btn_{card_id}",
+                            use_container_width=True
+                        ):
 
-    with c2:
-        if tem_similares:
-            if st.button(
-                f"📚 Similares ({len(noticias_grupo)})",
-                key=f"btn_{card_id}",
-                use_container_width=True
-            ):
-                st.session_state.modal_aberto = card_id
-                st.rerun()
+                            st.session_state.modal_aberto = card_id
+                            st.rerun()
     
    # POPUP NATIVO STREAMLIT
 if st.session_state.modal_aberto is not None:
