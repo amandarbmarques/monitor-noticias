@@ -130,6 +130,9 @@ def mostrar_dialog(noticia_selecionada, noticias_grupo):
 df = carregar_dados()
 
 if not df.empty:
+    # Tratamento básico de strings para evitar quebras de interface
+    df['veiculo'] = df['veiculo'].fillna('Desconhecido').astype(str).str.strip()
+
     # Tratamento e conversão de datas
     df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', format='mixed', utc=True)
     if 'data_coleta' in df.columns:
@@ -147,7 +150,7 @@ if not df.empty:
     # Renderização do painel principal
     st.title("📰 Monitor de Notícias")
     
-   # --- ÁREA DE FILTROS SUPERIOR (ULTRA TOLERANTE) ---
+    # --- ÁREA DE FILTROS SUPERIOR (SEM CORTES) ---
     with st.container(border=True):
         st.markdown("**🔍 Filtros de Pesquisa**")
         f_col1, f_col2, f_col3 = st.columns([2, 3, 3])
@@ -156,23 +159,17 @@ if not df.empty:
             busca = st.text_input("🔎 Buscar por termo", placeholder="Ex: Lula, Inflação...")
             
         with f_col2:
-            # Garante uma lista limpa de strings reais vindas do banco
-            veiculos_disponiveis = sorted(list(set([str(v).strip() for v in df['veiculo'].dropna().unique() if str(v).strip()])))
+            # Lista crua de veículos direto do banco (sem remover nenhum)
+            veiculos_disponiveis = sorted(df['veiculo'].unique().tolist())
             
-            # Seleção Inteligente: Coloca todos os veículos marcados por padrão,
-            # mas remove o termo curto "Folha" se "Folha de S.Paulo" já estiver presente.
-            padrao_veiculos = veiculos_disponiveis.copy()
-            
-            tem_folha_completa = any("folha de s" in v.lower() for v in padrao_veiculos)
-            if tem_folha_completa:
-                # Remove "Folha" curto do padrão inicial para não duplicar visualmente
-                padrao_veiculos = [v for v in padrao_veiculos if v.lower() != "folha"]
-                
-            veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=padrao_veiculos)
+            # Por padrão, deixa TUDO selecionado para não esconder nenhuma notícia
+            veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=veiculos_disponiveis)
             
         with f_col3:
-            temas_disponiveis = sorted(list(set([str(t).strip() for t in df['tema'].dropna().unique()])))
+            temas_disponiveis = sorted(df['tema'].unique().tolist())
             temas_selecionados = st.multiselect("🏷️ Filtrar Temas", temas_disponiveis, default=temas_disponiveis)
+            
+    st.divider()
     
     # Aplicação dos Filtros
     df_filtrado = df.copy()
@@ -196,7 +193,7 @@ if not df.empty:
                 card_id = i + j
 
                 grupo = row["grupo_noticia"]
-                noticias_grupo = df[df["grupo_noticia"] == grupo] # Corrigido de group para grupo
+                noticias_grupo = df[df["grupo_noticia"] == grupo]
 
                 tem_similares = len(noticias_grupo) > 1
                 badge = "🥇 " if row["furo"] == "🥇" else ""
