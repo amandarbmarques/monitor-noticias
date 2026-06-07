@@ -16,25 +16,23 @@ st.markdown("""
 if 'modal_aberto' not in st.session_state:
     st.session_state.modal_aberto = None
 
-# 3. Funções Auxiliares e Algoritmo Refinado
+# 3. Funções Auxiliares e Algoritmo de Similaridade
 def classificar_tema(titulo):
     if not isinstance(titulo, str):
         return "Geral"
     t = titulo.lower()
-    if any(x in t for x in ["lula", "governo", "stf", "política", "congresso", "senado", "flávio", "moraes", "pl", "pt"]):
+    if any(x in t for x in ["lula", "governo", "stf", "política", "congresso", "senado", "flávio", "moraes", "pl", "pt", "eleições", "stf"]):
         return "Política"
-    if any(x in t for x in ["economia", "dólar", "mercado", "juros", "haddad", "banco central", "inflação", "pib"]):
+    if any(x in t for x in ["economia", "dólar", "mercado", "juros", "haddad", "banco central", "inflação", "pib", "ações", "vendas", "faturamento"]):
         return "Economia"
     return "Geral"
 
 def extrair_palavras_chave(titulo, n=7):
-    # Lista expandida de stop words para evitar falsos positivos jornalísticos
     stop_words = {
         "a", "o", "e", "de", "da", "do", "em", "para", "por", "que", "é", "um", "uma", "os", "as",
         "com", "ao", "aos", "nas", "nos", "uma", "mais", "não", "pelo", "pela", "se", "diz", "vê",
         "após", "contra", "pode", "sobre", "nesta", "neste", "veja", "ser", "tem", "vai", "comentou"
     }
-    # Remove pontuações básicas que atrapalham a comparação
     for char in [".", ",", '"', "'", "!", "?", "(", ")", "-", ":", "—"]:
         titulo = titulo.replace(char, " ")
         
@@ -46,12 +44,10 @@ def calcular_furos_refinado(df):
         df["furo"] = ""
         return df
         
-    # Garante a ordenação cronológica crescente para achar o real primeiro (furo)
     df = df.sort_values(by='data_dt', ascending=True).reset_index(drop=True)
     df["furo"] = ""
     df["grupo_noticia"] = None
     
-    # Estrutura dos grupos: {grupo_id: {"palavras": set(), "ultima_data": timestamp}}
     grupos_vistos = {}
     
     for index, row in df.iterrows():
@@ -69,18 +65,14 @@ def calcular_furos_refinado(df):
             palavras_grupo = dados_grupo["palavras"]
             data_grupo = dados_grupo["ultima_data"]
             
-            # Regra da Janela Temporal: Evita agrupar notícias com mais de 24h de diferença
             diferenca_horas = abs((data_atual - data_grupo).total_seconds()) / 3600
             if diferenca_horas > 24:
                 continue
             
             interseccao = len(palavras_atuais & palavras_grupo)
-            
-            # Coeficiente de Overlap (Szymkiewicz–Simpson) -> Excelente para strings de tamanhos diferentes
             menor_tamanho = min(len(palavras_atuais), len(palavras_grupo))
             score = interseccao / menor_tamanho if menor_tamanho > 0 else 0
             
-            # Subiu a régua para 0.55 para evitar falsos positivos agressivos
             if score >= 0.55 and score > melhor_score:
                 melhor_score = score
                 melhor_grupo = grupo_id
@@ -93,7 +85,6 @@ def calcular_furos_refinado(df):
             }
             df.at[index, 'furo'] = "🥇"
         else:
-            # Atualiza o set de palavras do grupo mesclando com o novo título (melhora o aprendizado do grupo)
             grupos_vistos[melhor_grupo]["palavras"].update(palavras_atuais)
             
         df.at[index, 'grupo_noticia'] = melhor_grupo
@@ -139,11 +130,8 @@ def mostrar_dialog(noticia_selecionada, noticias_grupo):
 df = carregar_dados()
 
 if not df.empty:
-    # CORREÇÃO DO HORÁRIO DO GOOGLE NEWS: Força conversão tratando strings complexas
+    # Tratamento e conversão de datas
     df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', format='mixed', utc=True)
-    
-    # Identifica se sobrou algum valor verdadeiramente nulo para usar a coleta
-    usou_coleta = df['data_dt'].isna().any()
     if 'data_coleta' in df.columns:
         df['data_dt'] = df['data_dt'].fillna(pd.to_datetime(df['data_coleta'], errors='coerce', format='mixed', utc=True))
         
@@ -156,21 +144,33 @@ if not df.empty:
     df["tema"] = df["titulo"].apply(classificar_tema)
     df = calcular_furos_refinado(df)
     
-    # Sidebar
-    with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/2965/2965879.png", width=50)
-        st.title("🔍 Filtros")
-        busca = st.text_input("🔎 Buscar...", placeholder="Ex: Lula")
-        veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
-        veiculos_selecionados = st.multiselect("📰 Veículos", veiculos_disponiveis, default=veiculos_disponiveis[:5])
-        temas_selecionados = st.multiselect("🏷️ Temas", sorted(df['tema'].unique()), default=sorted(df['tema'].unique()))
-        st.divider()
-        st.metric("Total no Banco", len(df))
-        
-        if usou_coleta:
-            st.info("ℹ️ Formato de data do Google News ajustado. Notas sem data original usam a coleta por contingência.")
+    # Renderização do painel principal
+    st.title("📰 Monitor de Notícias")
     
-    # Filtros
+    # --- NOVA ÁREA DE FILTROS NA PARTE SUPERIOR PRINCIPAL ---
+    with st.container(border=True):
+        st.markdown("**🔍 Filtros de Pesquisa**")
+        f_col1, f_col2, f_col3 = st.columns([2, 3, 3])
+        
+        with f_col1:
+            busca = st.text_input("🔎 Buscar por termo", placeholder="Ex: Lula, Inflação...")
+            
+        with f_col2:
+            veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
+            # Define como padrão os veículos mais comuns ou os novos se já existirem no banco
+            padrao_veiculos = [v for v in veiculos_disponiveis if v in ["O Globo", "Valor Econômico", "BBC Brasil", "G1", "UOL"]][:5]
+            if not padrao_veiculos:
+                padrao_veiculos = veiculos_disponiveis[:5]
+                
+            veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=padrao_veiculos)
+            
+        with f_col3:
+            temas_disponiveis = sorted(df['tema'].unique())
+            temas_selecionados = st.multiselect("🏷️ Filtrar Temas", temas_disponiveis, default=temas_disponiveis)
+            
+    st.divider()
+    
+    # Aplicação dos Filtros selecionados no topo
     df_filtrado = df.copy()
     if busca:
         df_filtrado = df_filtrado[df_filtrado['titulo'].str.contains(busca, case=False, na=False)]
@@ -178,16 +178,8 @@ if not df.empty:
         df_filtrado = df_filtrado[df_filtrado['veiculo'].isin(veiculos_selecionados)]
     if temas_selecionados:
         df_filtrado = df_filtrado[df_filtrado['tema'].isin(temas_selecionados)]
-    
-    # Cabeçalho
-    st.title("📰 Monitor de Notícias")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Notícias Filtradas", len(df_filtrado))
-    col2.metric("Veículos Ativos", df_filtrado['veiculo'].nunique())
-    col3.metric("Temas", df_filtrado['tema'].nunique())
-    st.divider()
-    
-    st.markdown("### 📌 Notícias")
+        
+    st.markdown(f"### 📌 Notícias ({len(df_filtrado)} encontradas)")
     
     df_filtrado_reset = df_filtrado.reset_index(drop=True)
     
@@ -242,7 +234,7 @@ if not df.empty:
                             else:
                                 st.button("📚 Isolada", key=f"btn_{card_id}", disabled=True, use_container_width=True)
     
-  # Lógica do Modal/Dialog (Identação Corrigida)
+    # Lógica do Modal/Dialog
     if st.session_state.modal_aberto is not None:
         try:
             noticia_selecionada = df_filtrado_reset.iloc[st.session_state.modal_aberto]
