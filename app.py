@@ -208,7 +208,7 @@ if not df.empty:
                 card_id = i + j
 
                 grupo = row["grupo_noticia"]
-                noticias_grupo = df[df["grupo_noticia"] == group]
+                noticias_grupo = df[df["grupo_noticia"] == grupo]
 
                 tem_similares = len(noticias_grupo) > 1
                 badge = "🥇 " if row["furo"] == "🥇" else ""
