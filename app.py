@@ -101,4 +101,164 @@ def carregar_dados():
         conn.close()
         return df
     except Exception as e:
-        st.error(f"❌ Erro ao conectar ao banco de
+        st.error(f"❌ Erro ao conectar ao banco de dados: {e}")
+        return pd.DataFrame()
+
+# 5. Definição do Modal (Diálogo)
+@st.dialog("📰 Veículos que publicaram esta pauta")
+def mostrar_dialog(noticia_selecionada, noticias_grupo):
+    st.markdown(f"### {noticia_selecionada['titulo']}")
+    st.caption(f"{len(noticias_grupo)} veículos publicaram sobre este tema")
+    st.divider()
+
+    for _, noticia in noticias_grupo.iterrows():
+        if noticia["furo"] == "🥇":
+            st.success(f"🥇 {noticia['veiculo']} — PRIMEIRO A PUBLICAR")
+        else:
+            st.info(noticia["veiculo"])
+
+        st.write(noticia["titulo"])
+        st.caption(f"📅 {noticia['data_formatada']} | ✍️ {noticia.get('autor', 'Desconhecido')}")
+        st.link_button("🔗 Abrir notícia", noticia["url"])
+        st.divider()
+
+    if st.button("Fechar", use_container_width=True):
+        st.session_state.modal_aberto = None
+        st.rerun()
+
+# --- Fluxo de Execução Principal ---
+df = carregar_dados()
+
+if not df.empty:
+    # Tratamento e conversão de datas
+    df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', format='mixed', utc=True)
+    if 'data_coleta' in df.columns:
+        df['data_dt'] = df['data_dt'].fillna(pd.to_datetime(df['data_coleta'], errors='coerce', format='mixed', utc=True))
+        
+    df['data_dt'] = df['data_dt'].fillna(pd.Timestamp.now(tz='UTC'))
+    df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
+    
+    df['data_formatada'] = df['data_dt'].dt.strftime('%d/%m %H:%M')
+    df['hora'] = df['data_dt'].dt.strftime('%H:%M')
+    
+    df["tema"] = df["titulo"].apply(classificar_tema)
+    df = calcular_furos_refinado(df)
+    
+    # Renderização do painel principal
+    st.title("📰 Monitor de Notícias")
+    
+    # --- ÁREA DE FILTROS SUPERIOR REVISADA ---
+    with st.container(border=True):
+        st.markdown("**🔍 Filtros de Pesquisa**")
+        f_col1, f_col2, f_col3 = st.columns([2, 3, 3])
+        
+        with f_col1:
+            busca = st.text_input("🔎 Buscar por termo", placeholder="Ex: Lula, Inflação...")
+            
+        with f_col2:
+            # Captura a lista real de strings direto do banco
+            veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
+            
+            # Termos de busca para o filtro inicial (ignora maiúsculas/minúsculas)
+            termos_desejados = ["folha", "estadao", "uol", "globo", "valor", "bbc", "cnn", "jota"]
+            
+            # Filtra os veículos cujo nome contenha qualquer um dos termos desejados
+            padrao_veiculos = []
+            for v in veiculos_disponiveis:
+                v_lower = str(v).lower()
+                if any(t in v_lower for t in termos_desejados):
+                    padrao_veiculos.append(v)
+            
+            # Tratamento para remover duplicados visuais padrão (Garante que se tiver "Folha" e "Folha de S.Paulo", ele use apenas uma por padrão para não poluir)
+            tem_folha_longa = any("folha de s.paulo" in str(x).lower() for x in padrao_veiculos)
+            if tem_folha_longa and any(str(x).lower() == "folha" for x in padrao_veiculos):
+                # Mantém preferencialmente o nome completo no padrão inicial
+                padrao_veiculos = [x for x in padrao_veiculos if str(x).lower() != "folha"]
+
+            if not padrao_veiculos:
+                padrao_veiculos = veiculos_disponiveis[:5]
+                
+            veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=padrao_veiculos)
+            
+        with f_col3:
+            temas_disponiveis = sorted(df['tema'].unique())
+            temas_selecionados = st.multiselect("🏷️ Filtrar Temas", temas_disponiveis, default=temas_disponiveis)
+            
+    st.divider()
+    
+    # Aplicação dos Filtros
+    df_filtrado = df.copy()
+    if busca:
+        df_filtrado = df_filtrado[df_filtrado['titulo'].str.contains(busca, case=False, na=False)]
+    if veiculos_selecionados:
+        df_filtrado = df_filtrado[df_filtrado['veiculo'].isin(veiculos_selecionados)]
+    if temas_selecionados:
+        df_filtrado = df_filtrado[df_filtrado['tema'].isin(temas_selecionados)]
+        
+    st.markdown(f"### 📌 Notícias ({len(df_filtrado)} encontradas)")
+    
+    df_filtrado_reset = df_filtrado.reset_index(drop=True)
+    
+    # Grid de Cards com Botões Internos Nativos
+    for i in range(0, len(df_filtrado_reset), 3):
+        cols = st.columns(3)
+        for j in range(3):
+            if i + j < len(df_filtrado_reset):
+                row = df_filtrado_reset.iloc[i + j]
+                card_id = i + j
+
+                grupo = row["grupo_noticia"]
+                noticias_grupo = df[df["grupo_noticia"] == group]
+
+                tem_similares = len(noticias_grupo) > 1
+                badge = "🥇 " if row["furo"] == "🥇" else ""
+
+                with cols[j]:
+                    with st.container(border=True):
+                        st.markdown(
+                            f"""
+                            <div style="margin-bottom: 12px;">
+                                <div style="
+                                    font-weight:700;
+                                    font-size:0.95em;
+                                    line-height:1.35;
+                                    color:#1A1A1A;
+                                    margin-bottom:8px;
+                                ">
+                                    {badge}{row['titulo'][:80]}...
+                                </div>
+                                <div style="font-size:0.85em; color:#666;">
+                                    <div style="color:#2E7D32; font-weight:700; margin-bottom:4px;">
+                                        {row['veiculo']}
+                                    </div>
+                                    <div style="margin-bottom:2px;">📅 {row['data_formatada']}</div>
+                                    <div>✍️ {row.get('autor', 'Desconhecido')}</div>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.link_button("🔗 Abrir", row["url"], use_container_width=True)
+                        with c2:
+                            if tem_similares:
+                                if st.button(f"📚 Similares ({len(noticias_grupo)})", key=f"btn_{card_id}", use_container_width=True):
+                                    st.session_state.modal_aberto = card_id
+                                    st.rerun()
+                            else:
+                                st.button("📚 Isolada", key=f"btn_{card_id}", disabled=True, use_container_width=True)
+    
+    # Lógica do Modal/Dialog
+    if st.session_state.modal_aberto is not None:
+        try:
+            noticia_selecionada = df_filtrado_reset.iloc[st.session_state.modal_aberto]
+            grupo = noticia_selecionada["grupo_noticia"]
+            noticias_grupo = df[df["grupo_noticia"] == grupo].sort_values("data_dt")
+            mostrar_dialog(noticia_selecionada, noticias_grupo)
+        except Exception as e:
+            st.error(f"Erro ao abrir o detalhamento: {e}")
+            st.session_state.modal_aberto = None
+else:
+    st.warning("Nenhum dado disponível. Verifique o banco de dados.")
