@@ -2,84 +2,105 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 
-# 1. Configuração da Página (Deve ser o primeiro comando Streamlit)
+# 1. Configuração da Página
 st.set_page_config(page_title="Monitor de Notícias", page_icon="📰", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS Customizado para o Modal Nátivo/Dialog
+# 2. CSS Customizado para o Modal/Dialog
 st.markdown("""
     <style>
-    .modal-title {
-        font-size: 1.6em;
-        font-weight: 800;
-        color: #1A1A1A;
-        margin: 20px 0;
-    }
-    .modal-item {
-        padding: 16px;
-        background: #f8f9fa;
-        border-left: 4px solid #2E7D32;
-        border-radius: 6px;
-        margin-bottom: 16px;
-    }
-    .modal-item.primeiro {
-        background: #FFF3CD;
-        border-left: 4px solid #F57C00;
-    }
+    .modal-title { font-size: 1.6em; font-weight: 800; color: #1A1A1A; margin: 20px 0; }
+    .modal-item { padding: 16px; background: #f8f9fa; border-left: 4px solid #2E7D32; border-radius: 6px; margin-bottom: 16px; }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Inicialização do Estado da Sessão
 if 'modal_aberto' not in st.session_state:
     st.session_state.modal_aberto = None
 
-# 4. Funções Auxiliares de Processamento
+# 3. Funções Auxiliares e Algoritmo Refinado
 def classificar_tema(titulo):
     if not isinstance(titulo, str):
         return "Geral"
     t = titulo.lower()
-    if any(x in t for x in ["lula", "governo", "stf", "política", "congresso", "senado", "flávio", "moraes"]):
+    if any(x in t for x in ["lula", "governo", "stf", "política", "congresso", "senado", "flávio", "moraes", "pl", "pt"]):
         return "Política"
-    if any(x in t for x in ["economia", "dólar", "mercado", "juros", "haddad"]):
+    if any(x in t for x in ["economia", "dólar", "mercado", "juros", "haddad", "banco central", "inflação", "pib"]):
         return "Economia"
     return "Geral"
 
-def extrair_palavras_chave(titulo, n=5):
-    stop_words = {"a", "o", "e", "de", "da", "do", "em", "para", "por", "que", "é", "um", "uma", "os", "as"}
+def extrair_palavras_chave(titulo, n=7):
+    # Lista expandida de stop words para evitar falsos positivos jornalísticos
+    stop_words = {
+        "a", "o", "e", "de", "da", "do", "em", "para", "por", "que", "é", "um", "uma", "os", "as",
+        "com", "ao", "aos", "nas", "nos", "uma", "mais", "não", "pelo", "pela", "se", "diz", "vê",
+        "após", "contra", "pode", "sobre", "nesta", "neste", "veja", "ser", "tem", "vai", "comentou"
+    }
+    # Remove pontuações básicas que atrapalham a comparação
+    for char in [".", ",", '"', "'", "!", "?", "(", ")", "-", ":", "—"]:
+        titulo = titulo.replace(char, " ")
+        
     palavras = titulo.lower().split()
     return [p for p in palavras if p not in stop_words and len(p) > 3][:n]
 
-def calcular_furos(df):
+def calcular_furos_refinado(df):
     if df.empty:
         df["furo"] = ""
         return df
+        
+    # Garante a ordenação cronológica crescente para achar o real primeiro (furo)
     df = df.sort_values(by='data_dt', ascending=True).reset_index(drop=True)
     df["furo"] = ""
     df["grupo_noticia"] = None
+    
+    # Estrutura dos grupos: {grupo_id: {"palavras": set(), "ultima_data": timestamp}}
     grupos_vistos = {}
     
     for index, row in df.iterrows():
-        titulo = str(row['titulo']).lower()
+        titulo = str(row['titulo'])
         palavras_atuais = set(extrair_palavras_chave(titulo))
+        data_atual = row['data_dt']
+        
+        if not palavras_atuais:
+            continue
+            
         melhor_grupo = None
         melhor_score = 0
         
-        for grupo_id, palavras_grupo in grupos_vistos.items():
+        for grupo_id, dados_grupo in grupos_vistos.items():
+            palavras_grupo = dados_grupo["palavras"]
+            data_grupo = dados_grupo["ultima_data"]
+            
+            # Regra da Janela Temporal: Evita agrupar notícias com mais de 24h de diferença
+            diferenca_horas = abs((data_atual - data_grupo).total_seconds()) / 3600
+            if diferenca_horas > 24:
+                continue
+            
             interseccao = len(palavras_atuais & palavras_grupo)
-            uniao = len(palavras_atuais | palavras_grupo)
-            score = interseccao / uniao if uniao > 0 else 0
-            if score > 0.5 and score > melhor_score:
+            
+            # Coeficiente de Overlap (Szymkiewicz–Simpson) -> Excelente para strings de tamanhos diferentes
+            menor_tamanho = min(len(palavras_atuais), len(palavras_grupo))
+            score = interseccao / menor_tamanho if menor_tamanho > 0 else 0
+            
+            # Subiu a régua para 0.55 para evitar falsos positivos agressivos
+            if score >= 0.55 and score > melhor_score:
                 melhor_score = score
                 melhor_grupo = grupo_id
         
         if melhor_grupo is None:
             melhor_grupo = len(grupos_vistos)
-            grupos_vistos[melhor_grupo] = palavras_atuais
+            grupos_vistos[melhor_grupo] = {
+                "palavras": palavras_atuais,
+                "ultima_data": data_atual
+            }
             df.at[index, 'furo'] = "🥇"
+        else:
+            # Atualiza o set de palavras do grupo mesclando com o novo título (melhora o aprendizado do grupo)
+            grupos_vistos[melhor_grupo]["palavras"].update(palavras_atuais)
+            
         df.at[index, 'grupo_noticia'] = melhor_grupo
     
     return df.sort_values(by='data_dt', ascending=False)
 
-# 5. Carregamento de Dados com Cache
+# 4. Carregamento de Dados
 @st.cache_data(ttl=30)
 def carregar_dados():
     try:
@@ -92,7 +113,7 @@ def carregar_dados():
         st.error(f"❌ Erro ao conectar ao banco de dados: {e}")
         return pd.DataFrame()
 
-# 6. Definição Estática do Modal (Diálogo)
+# 5. Definição do Modal (Diálogo)
 @st.dialog("📰 Veículos que publicaram esta pauta")
 def mostrar_dialog(noticia_selecionada, noticias_grupo):
     st.markdown(f"### {noticia_selecionada['titulo']}")
@@ -118,25 +139,24 @@ def mostrar_dialog(noticia_selecionada, noticias_grupo):
 df = carregar_dados()
 
 if not df.empty:
-    # Tratamento de Datas e fuso horário
-    df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
+    # CORREÇÃO DO HORÁRIO DO GOOGLE NEWS: Força conversão tratando strings complexas
+    df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', format='mixed', utc=True)
     
-    # Identifica se o app está sendo forçado a usar a data de coleta (para te ajudar no debug)
+    # Identifica se sobrou algum valor verdadeiramente nulo para usar a coleta
     usou_coleta = df['data_dt'].isna().any()
-    
     if 'data_coleta' in df.columns:
-        df['data_dt'] = df['data_dt'].fillna(pd.to_datetime(df['data_coleta'], errors='coerce', utc=True))
+        df['data_dt'] = df['data_dt'].fillna(pd.to_datetime(df['data_coleta'], errors='coerce', format='mixed', utc=True))
         
     df['data_dt'] = df['data_dt'].fillna(pd.Timestamp.now(tz='UTC'))
     df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
+    
     df['data_formatada'] = df['data_dt'].dt.strftime('%d/%m %H:%M')
     df['hora'] = df['data_dt'].dt.strftime('%H:%M')
     
-    # Classificação e agrupamento
     df["tema"] = df["titulo"].apply(classificar_tema)
-    df = calcular_furos(df)
+    df = calcular_furos_refinado(df)
     
-    # Barra Lateral (Sidebar)
+    # Sidebar
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/2965/2965879.png", width=50)
         st.title("🔍 Filtros")
@@ -148,9 +168,9 @@ if not df.empty:
         st.metric("Total no Banco", len(df))
         
         if usou_coleta:
-            st.warning("⚠️ Algumas notícias estão sem 'data_publicacao' no banco e usaram a hora de coleta.")
+            st.info("ℹ️ Formato de data do Google News ajustado. Notas sem data original usam a coleta por contingência.")
     
-    # Aplicação dos Filtros
+    # Filtros
     df_filtrado = df.copy()
     if busca:
         df_filtrado = df_filtrado[df_filtrado['titulo'].str.contains(busca, case=False, na=False)]
@@ -159,7 +179,7 @@ if not df.empty:
     if temas_selecionados:
         df_filtrado = df_filtrado[df_filtrado['tema'].isin(temas_selecionados)]
     
-    # Cabeçalho da Página Principal
+    # Cabeçalho
     st.title("📰 Monitor de Notícias")
     col1, col2, col3 = st.columns(3)
     col1.metric("Notícias Filtradas", len(df_filtrado))
@@ -169,10 +189,9 @@ if not df.empty:
     
     st.markdown("### 📌 Notícias")
     
-    # Reset de index para a Grid funcionar perfeitamente
     df_filtrado_reset = df_filtrado.reset_index(drop=True)
     
-    # Renderização da Grid de Cards (3 colunas por linha)
+    # Grid de Cards com Botões Internos Nativos
     for i in range(0, len(df_filtrado_reset), 3):
         cols = st.columns(3)
         for j in range(3):
@@ -187,7 +206,6 @@ if not df.empty:
                 badge = "🥇 " if row["furo"] == "🥇" else ""
 
                 with cols[j]:
-                    # Bloco Container do Streamlit: envelopa HTML + botões Python no mesmo card
                     with st.container(border=True):
                         st.markdown(
                             f"""
@@ -213,7 +231,6 @@ if not df.empty:
                             unsafe_allow_html=True
                         )
 
-                        # Botões internos alinhados na base do card
                         c1, c2 = st.columns(2)
                         with c1:
                             st.link_button("🔗 Abrir", row["url"], use_container_width=True)
@@ -225,18 +242,7 @@ if not df.empty:
                             else:
                                 st.button("📚 Isolada", key=f"btn_{card_id}", disabled=True, use_container_width=True)
     
-    # Gerenciador de Ativação do Modal/Dialog
+    # Lógica do Modal/Dialog
     if st.session_state.modal_aberto is not None:
         try:
-            noticia_selecionada = df_filtrado_reset.iloc[st.session_state.modal_aberto]
-            grupo = noticia_selecionada["grupo_noticia"]
-            noticias_grupo = df[df["grupo_noticia"] == grupo].sort_values("data_dt")
-            
-            # Executa o Dialog passando os dados corretos
-            mostrar_dialog(noticia_selecionada, noticias_grupo)
-            
-        except Exception as e:
-            st.error(f"Erro ao abrir o detalhamento: {e}")
-            st.session_state.modal_aberto = None
-else:
-    st.warning("Nenhum dado disponível. Verifique os registros da tabela 'noticias' no seu banco de dados.")
+            noticia_selecionada = df_filtrado_
