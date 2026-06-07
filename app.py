@@ -260,7 +260,7 @@ for i in range(0, len(df_filtrado_reset), 3):
                             st.rerun()
     
    # POPUP NATIVO STREAMLIT
-    if st.session_state.modal_aberto is not None:
+        if st.session_state.modal_aberto is not None:
 
     try:
 
