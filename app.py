@@ -171,7 +171,7 @@ if not df.empty:
     
     df_filtrado_reset = df_filtrado.reset_index(drop=True)
     
-  for i in range(0, len(df_filtrado_reset), 3):
+for i in range(0, len(df_filtrado_reset), 3):
 
     cols = st.columns(3)
 
@@ -260,7 +260,7 @@ if not df.empty:
                             st.rerun()
     
    # POPUP NATIVO STREAMLIT
-if st.session_state.modal_aberto is not None:
+    if st.session_state.modal_aberto is not None:
 
     try:
 
