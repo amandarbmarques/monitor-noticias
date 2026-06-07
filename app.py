@@ -242,7 +242,17 @@ if not df.empty:
                             else:
                                 st.button("📚 Isolada", key=f"btn_{card_id}", disabled=True, use_container_width=True)
     
-    # Lógica do Modal/Dialog
+   # Lógica do Modal/Dialog (Trecho Corrigido)
     if st.session_state.modal_aberto is not None:
+        try:
+            noticia_selecionada = df_filtrado_reset.iloc[st.session_state.modal_aberto]
+            grupo = noticia_selecionada["grupo_noticia"]
+            noticias_grupo = df[df["grupo_noticia"] == grupo].sort_values("data_dt")
+            mostrar_dialog(noticia_selecionada, noticias_grupo)
+        except Exception as e:
+            st.error(f"Erro ao abrir o detalhamento: {e}")
+            st.session_state.modal_aberto = None
+else:
+    st.warning("Nenhum dado disponível. Verifique o banco de dados.")
         try:
             noticia_selecionada = df_filtrado_
