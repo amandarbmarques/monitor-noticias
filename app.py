@@ -91,12 +91,13 @@ def calcular_furos_refinado(df):
     
     return df.sort_values(by='data_dt', ascending=False)
 
-# 4. Carregamento de Dados
+# 4. Carregamento de Dados (Atualizado para buscar tudo)
 @st.cache_data(ttl=30)
 def carregar_dados():
     try:
         DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
         conn = psycopg2.connect(DB_URI)
+        # Mantendo busca total ordenada por inserção recente
         df = pd.read_sql("SELECT * FROM noticias ORDER BY data_coleta DESC", conn)
         conn.close()
         return df
@@ -130,7 +131,7 @@ def mostrar_dialog(noticia_selecionada, noticias_grupo):
 df = carregar_dados()
 
 if not df.empty:
-    # Tratamento básico de strings para evitar quebras de interface
+    # Tratamento básico de strings para limpar nomes vindos do banco
     df['veiculo'] = df['veiculo'].fillna('Desconhecido').astype(str).str.strip()
 
     # Tratamento e conversão de datas
@@ -150,7 +151,7 @@ if not df.empty:
     # Renderização do painel principal
     st.title("📰 Monitor de Notícias")
     
-    # --- ÁREA DE FILTROS SUPERIOR (SEM CORTES) ---
+    # --- ÁREA DE FILTROS SUPERIOR ---
     with st.container(border=True):
         st.markdown("**🔍 Filtros de Pesquisa**")
         f_col1, f_col2, f_col3 = st.columns([2, 3, 3])
@@ -159,10 +160,8 @@ if not df.empty:
             busca = st.text_input("🔎 Buscar por termo", placeholder="Ex: Lula, Inflação...")
             
         with f_col2:
-            # Lista crua de veículos direto do banco (sem remover nenhum)
+            # Coleta dinamicamente tudo o que o banco guardou
             veiculos_disponiveis = sorted(df['veiculo'].unique().tolist())
-            
-            # Por padrão, deixa TUDO selecionado para não esconder nenhuma notícia
             veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=veiculos_disponiveis)
             
         with f_col3:
@@ -210,7 +209,7 @@ if not df.empty:
                                     color:#1A1A1A;
                                     margin-bottom:8px;
                                 ">
-                                    {badge}{row['titulo'][:80]}...
+                                    {badge}{row['titulo']}
                                 </div>
                                 <div style="font-size:0.85em; color:#666;">
                                     <div style="color:#2E7D32; font-weight:700; margin-bottom:4px;">
