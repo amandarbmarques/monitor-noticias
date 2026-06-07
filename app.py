@@ -202,10 +202,69 @@ if not df.empty:
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    # BOTÃO DO MESMO TAMANHO
-                    if tem_similares:
-                        if st.button(f"ℹ️ Ver similares ({len(noticias_grupo)})", key=f"btn_{card_id}", use_container_width=True):
-                            st.session_state.modal_aberto = card_id
+                 with cols[j]:
+
+    st.markdown(f"""
+        <div style="
+            background:white;
+            border-left:4px solid #2E7D32;
+            border-radius:8px;
+            padding:16px;
+            margin-bottom:16px;
+            box-shadow:0 2px 8px rgba(0,0,0,0.1);
+            min-height:140px;
+        ">
+            <div style="
+                font-weight:700;
+                font-size:0.95em;
+                line-height:1.35;
+                color:#1A1A1A;
+                margin-bottom:12px;
+            ">
+                {badge}{row['titulo'][:60]}
+            </div>
+
+            <div style="
+                font-size:0.85em;
+                color:#666;
+                margin-bottom:12px;
+            ">
+                <div style="
+                    color:#2E7D32;
+                    font-weight:700;
+                ">
+                    {row['veiculo']}
+                </div>
+
+                <div>
+                    📅 {row['data_formatada']}
+                </div>
+
+                <div>
+                    ✍️ {row['autor']}
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.link_button(
+            "🔗 Abrir",
+            row["url"],
+            use_container_width=True
+        )
+
+    with c2:
+        if tem_similares:
+            if st.button(
+                f"📚 Similares ({len(noticias_grupo)})",
+                key=f"btn_{card_id}",
+                use_container_width=True
+            ):
+                st.session_state.modal_aberto = card_id
+                st.rerun()
     
    # POPUP NATIVO STREAMLIT
 if st.session_state.modal_aberto is not None:
