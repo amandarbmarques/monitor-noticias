@@ -144,35 +144,15 @@ if not df.empty:
     df["tema"] = df["titulo"].apply(classificar_tema)
     df = calcular_furos_refinado(df)
     
-    # Renderização do painel principal
-    st.title("📰 Monitor de Notícias")
+   # Substitua a linha st.title("📰 Monitor de Notícias") ATÉ a linha st.divider() do filtro por isto:
+    st.markdown("""
+        <h2 style="margin-bottom: 0px; font-weight: 800; color: #1A1A1A;">📰 Sala de Situação — Clipping Automatizado</h2>
+        <p style="color: #666; margin-bottom: 15px;">Ajuste os parâmetros abaixo para refinar a análise de similaridade.</p>
+    """, unsafe_allow_html=True)
     
-    # --- ÁREA DE FILTROS SUPERIOR ---
     with st.container(border=True):
-        st.markdown("**🔍 Filtros de Pesquisa**")
         f_col1, f_col2, f_col3 = st.columns([2, 3, 3])
-        
-        with f_col1:
-            busca = st.text_input("🔎 Buscar por termo", placeholder="Ex: Lula, Inflação...")
-            
-        with f_col2:
-            veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
-            
-            # LISTA CORRIGIDA: Inclui explicitamente os veículos antigos + os novos solicitados
-            veiculos_desejados = ["Folha de S.Paulo", "Folha", "Estadão", "O Estado de S. Paulo", "UOL", "O Globo", "Valor Econômico", "BBC Brasil"]
-            
-            # Filtra os que existem de fato na tabela do banco para preencher o padrão inicial
-            padrao_veiculos = [v for v in veiculos_disponiveis if any(d.lower() in v.lower() for d in veiculos_desejados)]
-            
-            # Se por acaso a busca acima falhar ou o banco estiver limpo, assume os primeiros 5 por segurança
-            if not padrao_veiculos:
-                padrao_veiculos = veiculos_disponiveis[:5]
-                
-            veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=padrao_veiculos)
-            
-        with f_col3:
-            temas_disponiveis = sorted(df['tema'].unique())
-            temas_selecionados = st.multiselect("🏷️ Filtrar Temas", temas_disponiveis, default=temas_disponiveis)
+        # ... (mantenha os mesmos inputs text_input e multiselect aqui dentro)
             
     st.divider()
     
