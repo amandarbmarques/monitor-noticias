@@ -144,81 +144,34 @@ if not df.empty:
     df["tema"] = df["titulo"].apply(classificar_tema)
     df = calcular_furos_refinado(df)
     
-   # Substitua a linha st.title("📰 Monitor de Notícias") ATÉ a linha st.divider() do filtro por isto:
+   # --- NOVO CABEÇALHO INTEGRADO COM FILTROS (CORRIGIDO) ---
     st.markdown("""
         <h2 style="margin-bottom: 0px; font-weight: 800; color: #1A1A1A;">📰 Sala de Situação — Clipping Automatizado</h2>
-        <p style="color: #666; margin-bottom: 15px;">Ajuste os parâmetros abaixo para refinar a análise de similaridade.</p>
+        <p style="color: #666; margin-bottom: 15px;">Ajuste os parâmetros abaixo para refinar a análise de pautas em tempo real.</p>
     """, unsafe_allow_html=True)
     
     with st.container(border=True):
         f_col1, f_col2, f_col3 = st.columns([2, 3, 3])
-        # ... (mantenha os mesmos inputs text_input e multiselect aqui dentro)
+        
+        with f_col1:
+            busca = st.text_input("🔎 Buscar por termo", placeholder="Ex: Lula, Inflação...")
+            
+        with f_col2:
+            veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
+            veiculos_desejados = ["Folha de S.Paulo", "Folha", "Estadão", "O Estado de S. Paulo", "UOL", "O Globo", "Valor Econômico", "BBC Brasil"]
+            padrao_veiculos = [v for v in veiculos_disponiveis if any(d.lower() in v.lower() for d in veiculos_desejados)]
+            
+            if not padrao_veiculos:
+                padrao_veiculos = veiculos_disponiveis[:5]
+                
+            veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=padrao_veiculos)
+            
+        with f_col3:
+            temas_disponiveis = sorted(df['tema'].unique())
+            temas_selecionados = st.multiselect("🏷️ Filtrar Temas", temas_disponiveis, default=temas_disponiveis)
             
     st.divider()
-    
-    # Aplicação dos Filtros
-    df_filtrado = df.copy()
-    if busca:
-        df_filtrado = df_filtrado[df_filtrado['titulo'].str.contains(busca, case=False, na=False)]
-    if veiculos_selecionados:
-        df_filtrado = df_filtrado[df_filtrado['veiculo'].isin(veiculos_selecionados)]
-    if temas_selecionados:
-        df_filtrado = df_filtrado[df_filtrado['tema'].isin(temas_selecionados)]
-        
-    st.markdown(f"### 📌 Notícias ({len(df_filtrado)} encontradas)")
-    
-    df_filtrado_reset = df_filtrado.reset_index(drop=True)
-    
-    # Grid de Cards com Botões Internos Nativos
-    for i in range(0, len(df_filtrado_reset), 3):
-        cols = st.columns(3)
-        for j in range(3):
-            if i + j < len(df_filtrado_reset):
-                row = df_filtrado_reset.iloc[i + j]
-                card_id = i + j
-
-                grupo = row["grupo_noticia"]
-                noticias_grupo = df[df["grupo_noticia"] == grupo]
-
-                tem_similares = len(noticias_grupo) > 1
-                badge = "🥇 " if row["furo"] == "🥇" else ""
-
-                with cols[j]:
-                    with st.container(border=True):
-                        st.markdown(
-                            f"""
-                            <div style="margin-bottom: 12px;">
-                                <div style="
-                                    font-weight:700;
-                                    font-size:0.95em;
-                                    line-height:1.35;
-                                    color:#1A1A1A;
-                                    margin-bottom:8px;
-                                ">
-                                    {badge}{row['titulo'][:80]}...
-                                </div>
-                                <div style="font-size:0.85em; color:#666;">
-                                    <div style="color:#2E7D32; font-weight:700; margin-bottom:4px;">
-                                        {row['veiculo']}
-                                    </div>
-                                    <div style="margin-bottom:2px;">📅 {row['data_formatada']}</div>
-                                    <div>✍️ {row.get('autor', 'Desconhecido')}</div>
-                                </div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            st.link_button("🔗 Abrir", row["url"], use_container_width=True)
-                        with c2:
-                            if tem_similares:
-                                if st.button(f"📚 Similares ({len(noticias_grupo)})", key=f"btn_{card_id}", use_container_width=True):
-                                    st.session_state.modal_aberto = card_id
-                                    st.rerun()
-                            else:
-                                st.button("📚 Isolada", key=f"btn_{card_id}", disabled=True, use_container_width=True)
+    # --- FIM DO BLOCO DE FILTROS ---
     
     # Lógica do Modal/Dialog
     if st.session_state.modal_aberto is not None:
