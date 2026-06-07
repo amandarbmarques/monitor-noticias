@@ -242,7 +242,7 @@ if not df.empty:
                             else:
                                 st.button("📚 Isolada", key=f"btn_{card_id}", disabled=True, use_container_width=True)
     
-   # Lógica do Modal/Dialog (Trecho Corrigido)
+  # Lógica do Modal/Dialog (Identação Corrigida)
     if st.session_state.modal_aberto is not None:
         try:
             noticia_selecionada = df_filtrado_reset.iloc[st.session_state.modal_aberto]
@@ -254,5 +254,3 @@ if not df.empty:
             st.session_state.modal_aberto = None
 else:
     st.warning("Nenhum dado disponível. Verifique o banco de dados.")
-        try:
-            noticia_selecionada = df_filtrado_
