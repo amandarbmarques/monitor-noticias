@@ -147,7 +147,7 @@ if not df.empty:
     # Renderização do painel principal
     st.title("📰 Monitor de Notícias")
     
-    # --- ÁREA DE FILTROS SUPERIOR (CORRIGIDA) ---
+   # --- ÁREA DE FILTROS SUPERIOR (ULTRA TOLERANTE) ---
     with st.container(border=True):
         st.markdown("**🔍 Filtros de Pesquisa**")
         f_col1, f_col2, f_col3 = st.columns([2, 3, 3])
@@ -156,33 +156,23 @@ if not df.empty:
             busca = st.text_input("🔎 Buscar por termo", placeholder="Ex: Lula, Inflação...")
             
         with f_col2:
-            # Pega exatamente o que existe de veículos na base de dados
-            veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
+            # Garante uma lista limpa de strings reais vindas do banco
+            veiculos_disponiveis = sorted(list(set([str(v).strip() for v in df['veiculo'].dropna().unique() if str(v).strip()])))
             
-            # Identifica os veículos monitorados independente de maiúsculas/minúsculas
-            termos_desejados = ["folha", "estadao", "estado de s. paulo", "uol", "globo", "valor", "bbc", "cnn", "jota"]
+            # Seleção Inteligente: Coloca todos os veículos marcados por padrão,
+            # mas remove o termo curto "Folha" se "Folha de S.Paulo" já estiver presente.
+            padrao_veiculos = veiculos_disponiveis.copy()
             
-            padrao_veiculos = []
-            for v in veiculos_disponiveis:
-                v_lower = str(v).lower()
-                if any(t in v_lower for t in termos_desejados):
-                    padrao_veiculos.append(v)
-            
-            # Se o banco trouxer a Folha escrita de dois jeitos, removemos "Folha" do padrão inicial
-            # para evitar que os filtros fiquem redundantes logo ao carregar a tela.
-            if any("folha de s.paulo" in str(x).lower() for x in padrao_veiculos) and any(str(x).lower() == "folha" for x in padrao_veiculos):
-                padrao_veiculos = [x for x in padrao_veiculos if str(x).lower() != "folha"]
-
-            if not padrao_veiculos:
-                padrao_veiculos = veiculos_disponiveis
+            tem_folha_completa = any("folha de s" in v.lower() for v in padrao_veiculos)
+            if tem_folha_completa:
+                # Remove "Folha" curto do padrão inicial para não duplicar visualmente
+                padrao_veiculos = [v for v in padrao_veiculos if v.lower() != "folha"]
                 
             veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=padrao_veiculos)
             
         with f_col3:
-            temas_disponiveis = sorted(df['tema'].unique())
+            temas_disponiveis = sorted(list(set([str(t).strip() for t in df['tema'].dropna().unique()])))
             temas_selecionados = st.multiselect("🏷️ Filtrar Temas", temas_disponiveis, default=temas_disponiveis)
-            
-    st.divider()
     
     # Aplicação dos Filtros
     df_filtrado = df.copy()
