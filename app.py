@@ -21,9 +21,10 @@ def classificar_tema(titulo):
     if not isinstance(titulo, str):
         return "Geral"
     t = titulo.lower()
-    if any(x in t for x in ["lula", "governo", "stf", "política", "congresso", "senado", "flávio", "moraes", "pl", "pt", "eleições", "stf"]):
-        return "Política"
-    if any(x in t for x in ["economia", "dólar", "mercado", "juros", "haddad", "banco central", "inflação", "pib", "ações", "vendas", "faturamento"]):
+    # Adicionado termos jurídicos comuns do JOTA e política da CNN
+    if any(x in t for x in ["lula", "governo", "stf", "política", "congresso", "senado", "flávio", "moraes", "pl", "pt", "eleições", "pgr", "tse", "liminar", "julgamento", "ministro", "voto"]):
+        return "Política/Judiciário"
+    if any(x in t for x in ["economia", "dólar", "mercado", "juros", "haddad", "banco central", "inflação", "pib", "ações", "vendas", "faturamento", "receita"]):
         return "Economia"
     return "Geral"
 
@@ -158,13 +159,14 @@ if not df.empty:
         with f_col2:
             veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
             
-            # LISTA CORRIGIDA: Inclui explicitamente os veículos antigos + os novos solicitados
-            veiculos_desejados = ["Folha de S.Paulo", "Folha", "Estadão", "O Estado de S. Paulo", "UOL", "O Globo", "Valor Econômico", "BBC Brasil"]
-            
-            # Filtra os que existem de fato na tabela do banco para preencher o padrão inicial
+            # LISTA COMPLETA: Incluindo os originais, intermediários e os novos (UOL, CNN Brasil, JOTA)
+            veiculos_desejados = [
+                "Folha de S.Paulo", "Folha", "Estadão", "O Estado de S. Paulo", 
+                "UOL", "O Globo", "Valor Econômico", "BBC Brasil", 
+                "CNN Brasil", "CNN", "JOTA", "Jota"
+            ]
             padrao_veiculos = [v for v in veiculos_disponiveis if any(d.lower() in v.lower() for d in veiculos_desejados)]
             
-            # Se por acaso a busca acima falhar ou o banco estiver limpo, assume os primeiros 5 por segurança
             if not padrao_veiculos:
                 padrao_veiculos = veiculos_disponiveis[:5]
                 
