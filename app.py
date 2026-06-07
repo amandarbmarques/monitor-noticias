@@ -147,7 +147,7 @@ if not df.empty:
     # Renderização do painel principal
     st.title("📰 Monitor de Notícias")
     
-    # --- ÁREA DE FILTROS SUPERIOR REVISADA ---
+    # --- ÁREA DE FILTROS SUPERIOR (CORRIGIDA) ---
     with st.container(border=True):
         st.markdown("**🔍 Filtros de Pesquisa**")
         f_col1, f_col2, f_col3 = st.columns([2, 3, 3])
@@ -156,27 +156,25 @@ if not df.empty:
             busca = st.text_input("🔎 Buscar por termo", placeholder="Ex: Lula, Inflação...")
             
         with f_col2:
-            # Captura a lista real de strings direto do banco
+            # Pega exatamente o que existe de veículos na base de dados
             veiculos_disponiveis = sorted(df['veiculo'].dropna().unique().tolist())
             
-            # Termos de busca para o filtro inicial (ignora maiúsculas/minúsculas)
-            termos_desejados = ["folha", "estadao", "uol", "globo", "valor", "bbc", "cnn", "jota"]
+            # Identifica os veículos monitorados independente de maiúsculas/minúsculas
+            termos_desejados = ["folha", "estadao", "estado de s. paulo", "uol", "globo", "valor", "bbc", "cnn", "jota"]
             
-            # Filtra os veículos cujo nome contenha qualquer um dos termos desejados
             padrao_veiculos = []
             for v in veiculos_disponiveis:
                 v_lower = str(v).lower()
                 if any(t in v_lower for t in termos_desejados):
                     padrao_veiculos.append(v)
             
-            # Tratamento para remover duplicados visuais padrão (Garante que se tiver "Folha" e "Folha de S.Paulo", ele use apenas uma por padrão para não poluir)
-            tem_folha_longa = any("folha de s.paulo" in str(x).lower() for x in padrao_veiculos)
-            if tem_folha_longa and any(str(x).lower() == "folha" for x in padrao_veiculos):
-                # Mantém preferencialmente o nome completo no padrão inicial
+            # Se o banco trouxer a Folha escrita de dois jeitos, removemos "Folha" do padrão inicial
+            # para evitar que os filtros fiquem redundantes logo ao carregar a tela.
+            if any("folha de s.paulo" in str(x).lower() for x in padrao_veiculos) and any(str(x).lower() == "folha" for x in padrao_veiculos):
                 padrao_veiculos = [x for x in padrao_veiculos if str(x).lower() != "folha"]
 
             if not padrao_veiculos:
-                padrao_veiculos = veiculos_disponiveis[:5]
+                padrao_veiculos = veiculos_disponiveis
                 
             veiculos_selecionados = st.multiselect("📰 Filtrar Veículos", veiculos_disponiveis, default=padrao_veiculos)
             
@@ -208,7 +206,7 @@ if not df.empty:
                 card_id = i + j
 
                 grupo = row["grupo_noticia"]
-                noticias_grupo = df[df["grupo_noticia"] == grupo]
+                noticias_grupo = df[df["grupo_noticia"] == grupo] # Corrigido de group para grupo
 
                 tem_similares = len(noticias_grupo) > 1
                 badge = "🥇 " if row["furo"] == "🥇" else ""
