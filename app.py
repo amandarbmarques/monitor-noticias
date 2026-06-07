@@ -2,57 +2,18 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 
+# 1. Configuração da Página (Deve ser o primeiro comando Streamlit)
 st.set_page_config(page_title="Monitor de Notícias", page_icon="📰", layout="wide", initial_sidebar_state="expanded")
 
+# 2. CSS Customizado para o Modal Nátivo/Dialog
 st.markdown("""
     <style>
-    /* Modal flutuante */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.6);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-    }
-    
-    .modal-popup {
-        background: white;
-        border-radius: 12px;
-        padding: 30px;
-        max-width: 700px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    }
-    
-    .modal-close {
-        float: right;
-        font-size: 28px;
-        font-weight: bold;
-        color: #999;
-        cursor: pointer;
-        border: none;
-        background: none;
-    }
-    
-    .modal-close:hover {
-        color: #333;
-    }
-    
     .modal-title {
         font-size: 1.6em;
         font-weight: 800;
         color: #1A1A1A;
         margin: 20px 0;
-        clear: both;
     }
-    
     .modal-item {
         padding: 16px;
         background: #f8f9fa;
@@ -60,7 +21,6 @@ st.markdown("""
         border-radius: 6px;
         margin-bottom: 16px;
     }
-    
     .modal-item.primeiro {
         background: #FFF3CD;
         border-left: 4px solid #F57C00;
@@ -68,9 +28,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# 3. Inicialização do Estado da Sessão
 if 'modal_aberto' not in st.session_state:
     st.session_state.modal_aberto = None
 
+# 4. Funções Auxiliares de Processamento
 def classificar_tema(titulo):
     if not isinstance(titulo, str):
         return "Geral"
@@ -117,20 +79,20 @@ def calcular_furos(df):
     
     return df.sort_values(by='data_dt', ascending=False)
 
+# 5. Carregamento de Dados com Cache
 @st.cache_data(ttl=30)
 def carregar_dados():
     try:
-        # Nota: Idealmente use st.secrets para credenciais em produção!
         DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
         conn = psycopg2.connect(DB_URI)
         df = pd.read_sql("SELECT * FROM noticias ORDER BY data_coleta DESC", conn)
         conn.close()
         return df
     except Exception as e:
-        st.error(f"❌ Erro ao conectar ao banco: {e}")
+        st.error(f"❌ Erro ao conectar ao banco de dados: {e}")
         return pd.DataFrame()
 
-# Definição da função de diálogo fora de qualquer bloco de renderização dinâmico
+# 6. Definição Estática do Modal (Diálogo)
 @st.dialog("📰 Veículos que publicaram esta pauta")
 def mostrar_dialog(noticia_selecionada, noticias_grupo):
     st.markdown(f"### {noticia_selecionada['titulo']}")
@@ -144,7 +106,7 @@ def mostrar_dialog(noticia_selecionada, noticias_grupo):
             st.info(noticia["veiculo"])
 
         st.write(noticia["titulo"])
-        st.caption(f"📅 {noticia['data_formatada']} | ✍️ {noticia['autor']}")
+        st.caption(f"📅 {noticia['data_formatada']} | ✍️ {noticia.get('autor', 'Desconhecido')}")
         st.link_button("🔗 Abrir notícia", noticia["url"])
         st.divider()
 
@@ -152,20 +114,29 @@ def mostrar_dialog(noticia_selecionada, noticias_grupo):
         st.session_state.modal_aberto = None
         st.rerun()
 
-# --- Fluxo Principal do App ---
+# --- Fluxo de Execução Principal ---
 df = carregar_dados()
 
 if not df.empty:
+    # Tratamento de Datas e fuso horário
     df['data_dt'] = pd.to_datetime(df['data_publicacao'], errors='coerce', utc=True)
+    
+    # Identifica se o app está sendo forçado a usar a data de coleta (para te ajudar no debug)
+    usou_coleta = df['data_dt'].isna().any()
+    
     if 'data_coleta' in df.columns:
         df['data_dt'] = df['data_dt'].fillna(pd.to_datetime(df['data_coleta'], errors='coerce', utc=True))
+        
     df['data_dt'] = df['data_dt'].fillna(pd.Timestamp.now(tz='UTC'))
     df['data_dt'] = df['data_dt'].dt.tz_convert('America/Sao_Paulo')
     df['data_formatada'] = df['data_dt'].dt.strftime('%d/%m %H:%M')
     df['hora'] = df['data_dt'].dt.strftime('%H:%M')
+    
+    # Classificação e agrupamento
     df["tema"] = df["titulo"].apply(classificar_tema)
     df = calcular_furos(df)
     
+    # Barra Lateral (Sidebar)
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/2965/2965879.png", width=50)
         st.title("🔍 Filtros")
@@ -175,7 +146,11 @@ if not df.empty:
         temas_selecionados = st.multiselect("🏷️ Temas", sorted(df['tema'].unique()), default=sorted(df['tema'].unique()))
         st.divider()
         st.metric("Total no Banco", len(df))
+        
+        if usou_coleta:
+            st.warning("⚠️ Algumas notícias estão sem 'data_publicacao' no banco e usaram a hora de coleta.")
     
+    # Aplicação dos Filtros
     df_filtrado = df.copy()
     if busca:
         df_filtrado = df_filtrado[df_filtrado['titulo'].str.contains(busca, case=False, na=False)]
@@ -184,18 +159,20 @@ if not df.empty:
     if temas_selecionados:
         df_filtrado = df_filtrado[df_filtrado['tema'].isin(temas_selecionados)]
     
+    # Cabeçalho da Página Principal
     st.title("📰 Monitor de Notícias")
     col1, col2, col3 = st.columns(3)
     col1.metric("Notícias Filtradas", len(df_filtrado))
-    col2.metric("Veículos", df_filtrado['veiculo'].nunique())
+    col2.metric("Veículos Ativos", df_filtrado['veiculo'].nunique())
     col3.metric("Temas", df_filtrado['tema'].nunique())
     st.divider()
     
     st.markdown("### 📌 Notícias")
     
+    # Reset de index para a Grid funcionar perfeitamente
     df_filtrado_reset = df_filtrado.reset_index(drop=True)
     
-    # Renderização da Grid de Cards (CORRIGIDA A IDENTAÇÃO)
+    # Renderização da Grid de Cards (3 colunas por linha)
     for i in range(0, len(df_filtrado_reset), 3):
         cols = st.columns(3)
         for j in range(3):
@@ -204,70 +181,62 @@ if not df.empty:
                 card_id = i + j
 
                 grupo = row["grupo_noticia"]
-                # Filtra os similares usando o df completo para achar furos originais
                 noticias_grupo = df[df["grupo_noticia"] == grupo]
 
                 tem_similares = len(noticias_grupo) > 1
                 badge = "🥇 " if row["furo"] == "🥇" else ""
 
                 with cols[j]:
-                    st.markdown(
-                        f"""
-                        <div style="
-                            background:white;
-                            border-left:4px solid #2E7D32;
-                            border-radius:8px;
-                            padding:16px;
-                            margin-bottom:16px;
-                            box-shadow:0 2px 8px rgba(0,0,0,0.1);
-                            min-height:180px;
-                        ">
-                            <div style="
-                                font-weight:700;
-                                font-size:0.95em;
-                                line-height:1.35;
-                                color:#1A1A1A;
-                                margin-bottom:12px;
-                            ">
-                                {badge}{row['titulo'][:80]}...
-                            </div>
-                            <div style="
-                                font-size:0.85em;
-                                color:#666;
-                                margin-bottom:12px;
-                            ">
-                                <div style="color:#2E7D32; font-weight:700;">
-                                    {row['veiculo']}
+                    # Bloco Container do Streamlit: envelopa HTML + botões Python no mesmo card
+                    with st.container(border=True):
+                        st.markdown(
+                            f"""
+                            <div style="margin-bottom: 12px;">
+                                <div style="
+                                    font-weight:700;
+                                    font-size:0.95em;
+                                    line-height:1.35;
+                                    color:#1A1A1A;
+                                    margin-bottom:8px;
+                                ">
+                                    {badge}{row['titulo'][:80]}...
                                 </div>
-                                <div>📅 {row['data_formatada']}</div>
-                                <div>✍️ {row.get('autor', 'Desconhecido')}</div>
+                                <div style="font-size:0.85em; color:#666;">
+                                    <div style="color:#2E7D32; font-weight:700; margin-bottom:4px;">
+                                        {row['veiculo']}
+                                    </div>
+                                    <div style="margin-bottom:2px;">📅 {row['data_formatada']}</div>
+                                    <div>✍️ {row.get('autor', 'Desconhecido')}</div>
+                                </div>
                             </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                            """,
+                            unsafe_allow_html=True
+                        )
 
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        st.link_button("🔗 Abrir", row["url"], use_container_width=True)
-                    with c2:
-                        if tem_similares:
-                            if st.button(f"📚 Similares ({len(noticias_grupo)})", key=f"btn_{card_id}", use_container_width=True):
-                                st.session_state.modal_aberto = card_id
-                                st.rerun()
+                        # Botões internos alinhados na base do card
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.link_button("🔗 Abrir", row["url"], use_container_width=True)
+                        with c2:
+                            if tem_similares:
+                                if st.button(f"📚 Similares ({len(noticias_grupo)})", key=f"btn_{card_id}", use_container_width=True):
+                                    st.session_state.modal_aberto = card_id
+                                    st.rerun()
+                            else:
+                                st.button("📚 Isolada", key=f"btn_{card_id}", disabled=True, use_container_width=True)
     
-    # Gerenciamento do Modal/Dialog (CORRIGIDO)
+    # Gerenciador de Ativação do Modal/Dialog
     if st.session_state.modal_aberto is not None:
         try:
             noticia_selecionada = df_filtrado_reset.iloc[st.session_state.modal_aberto]
             grupo = noticia_selecionada["grupo_noticia"]
             noticias_grupo = df[df["grupo_noticia"] == grupo].sort_values("data_dt")
             
-            # Chama a função de diálogo previamente definida
+            # Executa o Dialog passando os dados corretos
             mostrar_dialog(noticia_selecionada, noticias_grupo)
             
         except Exception as e:
-            st.error(f"Erro ao abrir modal: {e}")
+            st.error(f"Erro ao abrir o detalhamento: {e}")
             st.session_state.modal_aberto = None
 else:
-    st.warning("Nenhum dado encontrado ou erro na conexão com o banco de dados.")
+    st.warning("Nenhum dado disponível. Verifique os registros da tabela 'noticias' no seu banco de dados.")
