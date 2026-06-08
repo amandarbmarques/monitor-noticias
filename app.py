@@ -141,7 +141,7 @@ def construir_pautas(df):
 @st.cache_data(ttl=30)
 def carregar_dados():
 
-    DB_URI = "SEU_DB_URI_AQUI"
+    DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
 
     conn = psycopg2.connect(DB_URI)
 
