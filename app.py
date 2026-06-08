@@ -39,56 +39,67 @@ def extrair_palavras_chave(titulo, n=7):
     palavras = titulo.lower().split()
     return [p for p in palavras if p not in stop_words and len(p) > 3][:n]
 
-def calcular_furos_refinado(df):
+def agrupar_noticias_semelhantes(df):
     if df.empty:
-        df["furo"] = ""
         return df
-        
+
     df = df.sort_values(by='data_dt', ascending=True).reset_index(drop=True)
-    df["furo"] = ""
     df["grupo_noticia"] = None
-    
+
     grupos_vistos = {}
-    
+
     for index, row in df.iterrows():
         titulo = str(row['titulo'])
         palavras_atuais = set(extrair_palavras_chave(titulo))
         data_atual = row['data_dt']
-        
+
         if not palavras_atuais:
             continue
-            
+
         melhor_grupo = None
         melhor_score = 0
-        
+
         for grupo_id, dados_grupo in grupos_vistos.items():
             palavras_grupo = dados_grupo["palavras"]
             data_grupo = dados_grupo["ultima_data"]
-            
-            diferenca_horas = abs((data_atual - data_grupo).total_seconds()) / 3600
+
+            diferenca_horas = abs(
+                (data_atual - data_grupo).total_seconds()
+            ) / 3600
+
             if diferenca_horas > 24:
                 continue
-            
+
             interseccao = len(palavras_atuais & palavras_grupo)
-            menor_tamanho = min(len(palavras_atuais), len(palavras_grupo))
-            score = interseccao / menor_tamanho if menor_tamanho > 0 else 0
-            
+            menor_tamanho = min(
+                len(palavras_atuais),
+                len(palavras_grupo)
+            )
+
+            score = (
+                interseccao / menor_tamanho
+                if menor_tamanho > 0
+                else 0
+            )
+
             if score >= 0.55 and score > melhor_score:
                 melhor_score = score
                 melhor_grupo = grupo_id
-        
+
         if melhor_grupo is None:
             melhor_grupo = len(grupos_vistos)
+
             grupos_vistos[melhor_grupo] = {
                 "palavras": palavras_atuais,
                 "ultima_data": data_atual
             }
-            df.at[index, 'furo'] = "🥇"
         else:
-            grupos_vistos[melhor_grupo]["palavras"].update(palavras_atuais)
-            
+            grupos_vistos[melhor_grupo]["palavras"].update(
+                palavras_atuais
+            )
+
         df.at[index, 'grupo_noticia'] = melhor_grupo
-    
+
     return df.sort_values(by='data_dt', ascending=False)
 
 # 4. Carregamento de Dados (Atualizado para buscar tudo)
