@@ -133,27 +133,6 @@ def carregar_dados():
     conn.close()
     return df
 
-pautas = []
-
-for grupo_id, grupo in df.groupby("grupo_noticia"):
-
-    grupo = grupo.sort_values("data_dt")
-
-    primeiro = grupo.iloc[0]
-
-    pautas.append({
-        "grupo_id": grupo_id,
-        "titulo": primeiro["titulo"],
-        "primeiro_veiculo": primeiro["veiculo"],
-        "primeira_data": primeiro["data_dt"],
-        "total_materias": len(grupo),
-        "total_veiculos": grupo["veiculo"].nunique(),
-        "veiculos": list(grupo["veiculo"].unique()),
-        "grupo": grupo
-    })
-
-df_pautas = pd.DataFrame(pautas)
-
 @st.dialog("📚 Repercussão da pauta")
 def mostrar_dialog(titulo, grupo):
 
