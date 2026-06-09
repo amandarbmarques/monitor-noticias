@@ -300,23 +300,32 @@ if busca:
         )
     ]
 
-grupos = (
-    df_filtrado.groupby("grupo_noticia")
-    .size()
-    .reset_index(name="total")
-)
-
 m1, m2, m3, m4 = st.columns(4)
 
-m1.metric("Notícias", len(df_filtrado))
-m2.metric("Pautas", len(grupos))
+m1.metric(
+    "Pautas",
+    len(df_filtrado)
+)
+
+m2.metric(
+    "Matérias",
+    int(
+        df_filtrado["total_materias"].sum()
+    )
+)
+
 m3.metric(
     "Repercutidas",
-    len(grupos[grupos.total > 1])
+    len(
+        df_filtrado[
+            df_filtrado["total_veiculos"] > 1
+        ]
+    )
 )
+
 m4.metric(
     "Veículos",
-    df_filtrado["veiculo"].nunique()
+    df["veiculo"].nunique()
 )
 
 st.divider()
