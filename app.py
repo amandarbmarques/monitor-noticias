@@ -19,7 +19,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-BR_TZ = pytz.timezone("America/Sao_Paulo")
+BR_TZ = ZoneInfo("America/Sao_Paulo")
 
 # ─────────────────────────────────────────────
 # PARSING DE DATA ROBUSTO
@@ -34,7 +34,7 @@ def parse_data(valor):
             return pd.NaT
         # Garante timezone-aware
         if dt.tzinfo is None:
-            dt.replace(tzinfo=BR_TZ)
+            dt = dt.replace(tzinfo=BR_TZ)
         else:
             dt = dt.astimezone(BR_TZ)
         return pd.Timestamp(dt)
@@ -121,7 +121,6 @@ def construir_pautas(df):
 
     for grupo_id, grupo in df.groupby("grupo_noticia"):
         grupo = grupo.sort_values("data_publicacao_dt")
-        # Remove linhas sem data para definir primeiro/último
         grupo_com_data = grupo.dropna(subset=["data_publicacao_dt"])
 
         if grupo_com_data.empty:
@@ -148,21 +147,21 @@ def construir_pautas(df):
             status = "💤 Esfriando"
 
         pautas.append({
-            "grupo_id":        grupo_id,
-            "titulo":          primeiro["titulo"],
-            "origem":          primeiro["veiculo"],
-            "url":             primeiro["url"],
-            "primeira_data":   primeiro["data_publicacao_dt"],
-            "ultima_data":     ultimo["data_publicacao_dt"],
+            "grupo_id":          grupo_id,
+            "titulo":            primeiro["titulo"],
+            "origem":            primeiro["veiculo"],
+            "url":               primeiro["url"],
+            "primeira_data":     primeiro["data_publicacao_dt"],
+            "ultima_data":       ultimo["data_publicacao_dt"],
             "primeira_data_fmt": primeiro["data_publicacao_dt"].strftime("%d/%m %H:%M"),
-            "ultima_data_fmt": ultimo["data_publicacao_dt"].strftime("%d/%m %H:%M"),
-            "total_materias":  total_materias,
-            "total_veiculos":  total_veiculos,
-            "veiculos":        list(grupo["veiculo"].unique()),
-            "score":           round(score),
-            "status":          status,
-            "grupo":           grupo_com_data.reset_index(drop=True),
-            "tema":            classificar_tema(primeiro["titulo"]),
+            "ultima_data_fmt":   ultimo["data_publicacao_dt"].strftime("%d/%m %H:%M"),
+            "total_materias":    total_materias,
+            "total_veiculos":    total_veiculos,
+            "veiculos":          list(grupo["veiculo"].unique()),
+            "score":             round(score),
+            "status":            status,
+            "grupo":             grupo_com_data.reset_index(drop=True),
+            "tema":              classificar_tema(primeiro["titulo"]),
         })
 
     return pd.DataFrame(pautas)
