@@ -57,12 +57,13 @@ def extrair_palavras_chave(titulo, n=7):
         if p not in stop_words and len(p) > 3
     ][:n]
 
-df = agrupar_noticias_semelhantes(df)
+def agrupar_noticias_semelhantes(df):
 
-df_pautas = construir_pautas(df)
+    df = df.sort_values(
+        "data_dt"
+    ).reset_index(drop=True)
 
-df = df.sort_values("data_dt").reset_index(drop=True)
-df["grupo_noticia"] = None
+    df["grupo_noticia"] = None
 
     grupos = {}
 
@@ -89,7 +90,8 @@ df["grupo_noticia"] = None
                 continue
 
             inter = len(
-                palavras & dados["palavras"]
+                palavras &
+                dados["palavras"]
             )
 
             menor = min(
@@ -97,19 +99,26 @@ df["grupo_noticia"] = None
                 len(dados["palavras"])
             )
 
-            score = inter / menor if menor else 0
+            score = (
+                inter / menor
+                if menor else 0
+            )
 
             if score >= 0.55 and score > score_melhor:
                 score_melhor = score
                 melhor = grupo_id
 
         if melhor is None:
+
             melhor = len(grupos)
+
             grupos[melhor] = {
                 "palavras": palavras,
                 "data": data_atual
             }
+
         else:
+
             grupos[melhor]["palavras"].update(
                 palavras
             )
