@@ -18,22 +18,29 @@ DB_URI = "postgresql://postgres:[YOUR-PASSWORD]@db.hhfttkctypcgrdwvnhug.supabase
 
 
 @st.cache_data(ttl=60)
+@st.cache_data(ttl=60)
 def carregar_dados():
 
-    conn = psycopg2.connect(DB_URI)
+    try:
+        conn = psycopg2.connect(DB_URI)
 
-    df = pd.read_sql(
-        """
-        SELECT *
-        FROM noticias
-        ORDER BY data_coleta DESC
-        """,
-        conn
-    )
+        df = pd.read_sql(
+            """
+            SELECT *
+            FROM noticias
+            ORDER BY data_coleta DESC
+            """,
+            conn
+        )
 
-    conn.close()
+        conn.close()
 
-    return df
+        return df
+
+    except Exception as e:
+        st.error("Erro ao conectar")
+        st.exception(e)
+        st.stop()
 
 
 # =====================================
