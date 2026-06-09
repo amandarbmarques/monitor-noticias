@@ -61,8 +61,8 @@ df = agrupar_noticias_semelhantes(df)
 
 df_pautas = construir_pautas(df)
 
-    df = df.sort_values("data_dt").reset_index(drop=True)
-    df["grupo_noticia"] = None
+df = df.sort_values("data_dt").reset_index(drop=True)
+df["grupo_noticia"] = None
 
     grupos = {}
 
