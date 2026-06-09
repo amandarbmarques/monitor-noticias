@@ -139,7 +139,10 @@ def construir_pautas(df):
             + max(0, 24 - idade_horas)
         )
 
-        if idade_horas <= 12 and total_veiculos >= 3:
+        # Furo: 1 publicou primeiro e pelo menos 3 outros seguiram (4+ veículos total)
+        if total_veiculos >= 4:
+            status = "🎯 Furo"
+        elif total_veiculos >= 2 and idade_horas <= 12:
             status = "🔥 Quente"
         elif idade_horas <= 24:
             status = "📈 Crescendo"
@@ -302,8 +305,8 @@ if status_sel != "Todos":
 # ── MÉTRICAS ──────────────────────────────────
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Pautas", len(df_filtrado))
-m2.metric("🔥 Quentes", len(df_filtrado[df_filtrado["status"] == "🔥 Quente"]))
-m3.metric("📈 Crescendo", len(df_filtrado[df_filtrado["status"] == "📈 Crescendo"]))
+m2.metric("🎯 Furos", len(df_filtrado[df_filtrado["status"] == "🎯 Furo"]))
+m3.metric("🔥 Quentes", len(df_filtrado[df_filtrado["status"] == "🔥 Quente"]))
 m4.metric("Matérias totais", int(df_filtrado["total_materias"].sum()))
 
 st.divider()
@@ -343,10 +346,17 @@ else:
                     st.markdown(f"**{pauta['status']}** · {pauta['tema']}")
                     st.markdown(f"#### {pauta['titulo']}")
 
-                    st.caption(
-                        f"🚀 **Primeiro:** {pauta['origem']} "
-                        f"— {pauta['primeira_data_fmt']}"
-                    )
+                    if pauta["status"] == "🎯 Furo":
+                        st.info(
+                            f"🎯 **Furo de {pauta['origem']}** — "
+                            f"{pauta['total_veiculos'] - 1} veículos seguiram"
+                        )
+                    else:
+                        st.caption(
+                            f"🚀 **Primeiro:** {pauta['origem']} "
+                            f"— {pauta['primeira_data_fmt']}"
+                        )
+
                     st.caption(
                         f"🕒 **Última repercussão:** {pauta['ultima_data_fmt']}"
                     )
@@ -354,7 +364,7 @@ else:
                     st.write(
                         f"📡 {pauta['total_veiculos']} veículos "
                         f"· 📰 {pauta['total_materias']} matérias "
-                        f"· 🎯 Score {pauta['score']}"
+                        f"· ⭐ Score {pauta['score']}"
                     )
 
                     st.caption(" • ".join(pauta["veiculos"][:6]))
