@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import psycopg2
+import anthropic
 from dateutil import parser as dateparser
 from zoneinfo import ZoneInfo
 
@@ -10,15 +11,11 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown("""
-<style>
-    .pauta-card { border-radius: 8px; padding: 1rem; }
-</style>
-""", unsafe_allow_html=True)
-
 BR_TZ = ZoneInfo("America/Sao_Paulo")
 
-
+# ─────────────────────────────────────────────
+# PARSING DE DATA
+# ─────────────────────────────────────────────
 def parse_data(valor):
     if pd.isna(valor) or valor == "" or valor is None:
         return pd.NaT
@@ -35,6 +32,9 @@ def parse_data(valor):
         return pd.NaT
 
 
+# ─────────────────────────────────────────────
+# CLASSIFICACAO DE TEMA
+# ─────────────────────────────────────────────
 def classificar_tema(titulo):
     if not isinstance(titulo, str):
         return "Geral"
@@ -52,10 +52,13 @@ def classificar_tema(titulo):
     return "Geral"
 
 
+# ─────────────────────────────────────────────
+# PALAVRAS-CHAVE
+# ─────────────────────────────────────────────
 def extrair_palavras_chave(titulo, n=7):
     stop_words = {
         "a", "o", "e", "de", "da", "do", "em", "para", "por",
-        "que", "e", "um", "uma", "os", "as", "com", "mais",
+        "que", "um", "uma", "os", "as", "com", "mais",
         "nao", "sobre", "apos", "contra", "no", "na", "ao", "dos",
         "das", "pelo", "pela", "entre", "seus", "sua", "isso", "este",
         "não", "após"
@@ -66,7 +69,10 @@ def extrair_palavras_chave(titulo, n=7):
     return [p for p in palavras if p not in stop_words and len(p) > 3][:n]
 
 
-def agrupar_noticias_semelhantes(df):
+# ─────────────────────────────────────────────
+# AGRUPAMENTO DE NOTICIAS
+# ─────────────────────────────────────────────
+def agrupar_noticias_semelhantes(df, janela_horas=36):
     df = df.sort_values("data_publicacao_dt").reset_index(drop=True)
     df["grupo_noticia"] = None
     grupos = {}
@@ -89,7 +95,7 @@ def agrupar_noticias_semelhantes(df):
             if pd.isna(data_grupo):
                 continue
             diferenca_horas = abs((data_atual - data_grupo).total_seconds()) / 3600
-            if diferenca_horas > 36:
+            if diferenca_horas > janela_horas:
                 continue
             inter = len(palavras & dados["palavras"])
             menor = min(len(palavras), len(dados["palavras"]))
@@ -109,7 +115,10 @@ def agrupar_noticias_semelhantes(df):
     return df.sort_values("data_publicacao_dt", ascending=False)
 
 
-def construir_pautas(df):
+# ─────────────────────────────────────────────
+# CONSTRUCAO DE PAUTAS
+# ─────────────────────────────────────────────
+def construir_pautas(df, horas_quente=12, horas_esfriando=24):
     pautas = []
     agora = pd.Timestamp.now(tz=BR_TZ)
 
@@ -133,12 +142,11 @@ def construir_pautas(df):
             + max(0, 24 - idade_horas)
         )
 
-        # Furo: 1 publicou primeiro + pelo menos 3 outros seguiram (4+ veiculos total)
         if total_veiculos >= 4:
             status = "🎯 Furo"
-        elif total_veiculos >= 2 and idade_horas <= 12:
+        elif total_veiculos >= 2 and idade_horas <= horas_quente:
             status = "🔥 Quente"
-        elif idade_horas <= 24:
+        elif idade_horas <= horas_esfriando:
             status = "📈 Crescendo"
         else:
             status = "💤 Esfriando"
@@ -164,6 +172,9 @@ def construir_pautas(df):
     return pd.DataFrame(pautas)
 
 
+# ─────────────────────────────────────────────
+# CARREGAMENTO DE DADOS
+# ─────────────────────────────────────────────
 @st.cache_data(ttl=60)
 def carregar_dados():
     DB_URI = st.secrets["DB_URI"]
@@ -185,15 +196,44 @@ def carregar_dados():
 
 
 # ─────────────────────────────────────────────
+# RESUMO AUTOMATICO VIA CLAUDE
+# So funciona se ANTHROPIC_API_KEY estiver em secrets.toml
+# ─────────────────────────────────────────────
+def gerar_resumo(titulo_principal, titulos_cobertura):
+    try:
+        api_key = st.secrets.get("ANTHROPIC_API_KEY", None)
+        if not api_key:
+            return None
+
+        client = anthropic.Anthropic(api_key=api_key)
+
+        titulos_fmt = "\n".join(f"- {t}" for t in titulos_cobertura[:10])
+        prompt = (
+            f"Voce e um editor de jornalismo. Com base nos titulos abaixo de uma mesma pauta, "
+            f"escreva um resumo jornalistico objetivo em 2-3 frases explicando o que aconteceu. "
+            f"Sem especulacao, apenas o que os titulos indicam.\n\n"
+            f"Titulos:\n{titulos_fmt}\n\n"
+            f"Resumo:"
+        )
+
+        message = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=200,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return message.content[0].text.strip()
+
+    except Exception:
+        return None
+
+
+# ─────────────────────────────────────────────
 # MODAL — LINHA DO TEMPO DA COBERTURA
-# Agrupa por veículo: linha do tempo mostra primeira publicação de cada um
-# e lista todas as matérias daquele veículo abaixo
 # ─────────────────────────────────────────────
 @st.dialog("Cobertura da pauta", width="large")
 def mostrar_cobertura(titulo, grupo):
     st.markdown(f"### {titulo}")
 
-    # Primeira publicacao de cada veiculo para montar a linha do tempo
     primeiro_por_veiculo = (
         grupo.sort_values("data_publicacao_dt")
         .groupby("veiculo", sort=False)
@@ -215,6 +255,22 @@ def mostrar_cobertura(titulo, grupo):
         st.caption(
             f"{total_materias} materias no total "
             f"({total_materias - total_veiculos} republicacoes)"
+        )
+
+    # Resumo automatico
+    tem_api = bool(st.secrets.get("ANTHROPIC_API_KEY", None))
+    if tem_api:
+        if st.button("Gerar resumo automatico", key=f"resumo_{titulo[:20]}"):
+            with st.spinner("Gerando resumo..."):
+                titulos = grupo["titulo"].tolist()
+                resumo = gerar_resumo(titulo, titulos)
+                if resumo:
+                    st.info(resumo)
+                else:
+                    st.warning("Nao foi possivel gerar o resumo.")
+    else:
+        st.caption(
+            "Resumo automatico disponivel apos configurar ANTHROPIC_API_KEY no secrets.toml"
         )
 
     st.divider()
@@ -264,6 +320,10 @@ def mostrar_cobertura(titulo, grupo):
 # ─────────────────────────────────────────────
 st.title("Monitor de Pauta")
 
+# Estado para pautas ignoradas
+if "pautas_ignoradas" not in st.session_state:
+    st.session_state.pautas_ignoradas = set()
+
 df_raw = carregar_dados()
 
 # Alerta de coleta
@@ -284,31 +344,78 @@ if pd.notna(ultima_coleta):
 
 st.divider()
 
-df_agrupado = agrupar_noticias_semelhantes(df_raw)
-df_pautas   = construir_pautas(df_agrupado)
-
-if df_pautas.empty:
-    st.warning("Nenhuma pauta encontrada.")
-    st.stop()
-
-# Filtros
+# ── FILTROS E CONFIGURACOES ──────────────────
 col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
 
 with col_f1:
     busca = st.text_input("Buscar pauta", placeholder="Palavra-chave...")
 
 with col_f2:
+    modo = st.radio("Visualizacao", ["Cards", "Tabela"], horizontal=True)
+
+with col_f3:
+    janela_horas = st.slider(
+        "Janela de agrupamento (h)",
+        min_value=6, max_value=72, value=36, step=6,
+        help="Maximo de horas entre publicacoes para considerar a mesma pauta"
+    )
+
+with col_f4:
+    horas_quente = st.slider(
+        "Quente se ultima repercussao em (h)",
+        min_value=1, max_value=24, value=12, step=1,
+    )
+
+col_s1, col_s2, col_s3, col_s4 = st.columns([1, 1, 1, 1])
+
+with col_s1:
+    horas_esfriando = st.slider(
+        "Esfriando apos (h)",
+        min_value=12, max_value=168, value=24, step=6,
+    )
+
+with col_s2:
+    mostrar_ignoradas = st.toggle("Mostrar pautas ignoradas", value=False)
+
+with col_s3:
+    if st.session_state.pautas_ignoradas and st.button("Restaurar todas ignoradas"):
+        st.session_state.pautas_ignoradas = set()
+        st.rerun()
+
+df_agrupado = agrupar_noticias_semelhantes(df_raw, janela_horas=janela_horas)
+df_pautas = construir_pautas(df_agrupado, horas_quente=horas_quente, horas_esfriando=horas_esfriando)
+
+if df_pautas.empty:
+    st.warning("Nenhuma pauta encontrada.")
+    st.stop()
+
+# Banner de furos novos — pautas com furo que ainda nao foram ignoradas
+furos = df_pautas[
+    (df_pautas["status"] == "🎯 Furo") &
+    (~df_pautas["grupo_id"].isin(st.session_state.pautas_ignoradas))
+]
+if not furos.empty:
+    nomes = ", ".join(furos["origem"].tolist()[:5])
+    st.warning(
+        f"🎯 **{len(furos)} furo(s) detectado(s):** {nomes} "
+        f"{'e outros' if len(furos) > 5 else ''}"
+    )
+
+with col_s3:
     temas_disponiveis = ["Todos"] + sorted(df_pautas["tema"].unique().tolist())
     tema_sel = st.selectbox("Tema", temas_disponiveis)
 
-with col_f3:
+with col_s4:
     status_disponiveis = ["Todos"] + sorted(df_pautas["status"].unique().tolist())
     status_sel = st.selectbox("Status", status_disponiveis)
 
-with col_f4:
-    modo = st.radio("Visualizacao", ["Cards", "Tabela"], horizontal=True)
-
+# Aplica filtros
 df_filtrado = df_pautas.copy()
+
+if not mostrar_ignoradas:
+    df_filtrado = df_filtrado[
+        ~df_filtrado["grupo_id"].isin(st.session_state.pautas_ignoradas)
+    ]
 
 if busca:
     df_filtrado = df_filtrado[
@@ -334,6 +441,7 @@ pautas_ord = df_filtrado.sort_values(
     ["score", "ultima_data"], ascending=[False, False]
 ).reset_index(drop=True)
 
+# ── VISUALIZACAO ─────────────────────────────
 if modo == "Tabela":
     tabela = pautas_ord[[
         "titulo", "origem", "primeira_data_fmt", "ultima_data_fmt",
@@ -358,8 +466,21 @@ else:
             if i + j >= len(pautas_ord):
                 break
             pauta = pautas_ord.iloc[i + j]
+            ignorada = pauta["grupo_id"] in st.session_state.pautas_ignoradas
+
             with cols[j]:
                 with st.container(border=True):
+
+                    if ignorada:
+                        st.markdown(f"~~{pauta['titulo']}~~ _(ignorada)_")
+                        if st.button(
+                            "Restaurar",
+                            key=f"restaurar_{pauta['grupo_id']}",
+                            use_container_width=True
+                        ):
+                            st.session_state.pautas_ignoradas.discard(pauta["grupo_id"])
+                            st.rerun()
+                        continue
 
                     st.markdown(f"**{pauta['status']}** · {pauta['tema']}")
                     st.markdown(f"#### {pauta['titulo']}")
@@ -385,7 +506,7 @@ else:
 
                     st.caption(" • ".join(pauta["veiculos"][:6]))
 
-                    c1, c2 = st.columns(2)
+                    c1, c2, c3 = st.columns(3)
                     with c1:
                         st.link_button(
                             "Ver origem",
@@ -402,3 +523,12 @@ else:
                                 pauta["titulo"],
                                 pauta["grupo"]
                             )
+                    with c3:
+                        if st.button(
+                            "Ignorar",
+                            key=f"ignorar_{pauta['grupo_id']}",
+                            use_container_width=True,
+                            type="secondary"
+                        ):
+                            st.session_state.pautas_ignoradas.add(pauta["grupo_id"])
+                            st.rerun()
