@@ -325,9 +325,7 @@ else:
                                 pauta["titulo"],
                                 pauta["grupo"]
                             )
-                            
-                                )
-
+                                        
 ultima_coleta = pd.to_datetime(
     df["data_coleta"].max(),
     utc=True,
