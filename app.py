@@ -14,7 +14,7 @@ st.set_page_config(
 # BANCO
 # =====================================
 
-DB_URI = "SEU_DB_URI_AQUI"
+DB_URI = "postgresql://postgres:[YOUR-PASSWORD]@db.hhfttkctypcgrdwvnhug.supabase.co:5432/postgres"
 
 
 @st.cache_data(ttl=60)
