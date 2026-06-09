@@ -325,7 +325,7 @@ else:
                                 pauta["titulo"],
                                 pauta["grupo"]
                             )
-                                )
+                            )
                                 )
 
 ultima_coleta = pd.to_datetime(
