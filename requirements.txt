@@ -6,3 +6,4 @@ beautifulsoup4
 lxml
 rapidfuzz
 psycopg2-binary
+anthropic 
