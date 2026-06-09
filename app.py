@@ -13,18 +13,12 @@ st.set_page_config(
 st.markdown("""
 <style>
     .pauta-card { border-radius: 8px; padding: 1rem; }
-    .status-quente { color: #FF4B4B; font-weight: bold; }
-    .status-crescendo { color: #FF8C00; font-weight: bold; }
-    .status-esfriando { color: #888; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
 BR_TZ = ZoneInfo("America/Sao_Paulo")
 
-# ─────────────────────────────────────────────
-# PARSING DE DATA ROBUSTO
-# data_publicacao é character varying — pode vir em vários formatos
-# ─────────────────────────────────────────────
+
 def parse_data(valor):
     if pd.isna(valor) or valor == "" or valor is None:
         return pd.NaT
@@ -32,7 +26,6 @@ def parse_data(valor):
         dt = dateparser.parse(str(valor))
         if dt is None:
             return pd.NaT
-        # Garante timezone-aware
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=BR_TZ)
         else:
@@ -47,13 +40,13 @@ def classificar_tema(titulo):
         return "Geral"
     t = titulo.lower()
     if any(x in t for x in [
-        "lula", "governo", "stf", "política", "congresso",
-        "senado", "moraes", "pt", "pl", "eleições"
+        "lula", "governo", "stf", "politica", "congresso",
+        "senado", "moraes", "pt", "pl", "eleicoes", "política", "eleições"
     ]):
         return "Política/Judiciário"
     if any(x in t for x in [
-        "economia", "inflação", "dólar", "mercado",
-        "haddad", "juros", "pib"
+        "economia", "inflacao", "dolar", "mercado",
+        "haddad", "juros", "pib", "inflação", "dólar"
     ]):
         return "Economia"
     return "Geral"
@@ -62,9 +55,10 @@ def classificar_tema(titulo):
 def extrair_palavras_chave(titulo, n=7):
     stop_words = {
         "a", "o", "e", "de", "da", "do", "em", "para", "por",
-        "que", "é", "um", "uma", "os", "as", "com", "mais",
-        "não", "sobre", "após", "contra", "no", "na", "ao", "dos",
-        "das", "pelo", "pela", "entre", "seus", "sua", "isso", "este"
+        "que", "e", "um", "uma", "os", "as", "com", "mais",
+        "nao", "sobre", "apos", "contra", "no", "na", "ao", "dos",
+        "das", "pelo", "pela", "entre", "seus", "sua", "isso", "este",
+        "não", "após"
     }
     for char in [".", ",", "!", "?", "(", ")", "-", ":", "'"]:
         titulo = titulo.replace(char, " ")
@@ -139,7 +133,7 @@ def construir_pautas(df):
             + max(0, 24 - idade_horas)
         )
 
-        # Furo: 1 publicou primeiro e pelo menos 3 outros seguiram (4+ veículos total)
+        # Furo: 1 publicou primeiro + pelo menos 3 outros seguiram (4+ veiculos total)
         if total_veiculos >= 4:
             status = "🎯 Furo"
         elif total_veiculos >= 2 and idade_horas <= 12:
@@ -180,10 +174,8 @@ def carregar_dados():
     )
     conn.close()
 
-    # Converte data_publicacao (varchar) → datetime com timezone
     df["data_publicacao_dt"] = df["data_publicacao"].apply(parse_data)
 
-    # Fallback: se data_publicacao estiver vazia, usa data_coleta
     df["data_coleta_dt"] = pd.to_datetime(df["data_coleta"], utc=True, errors="coerce")
     df["data_coleta_dt"] = df["data_coleta_dt"].dt.tz_convert(BR_TZ)
 
@@ -194,58 +186,87 @@ def carregar_dados():
 
 # ─────────────────────────────────────────────
 # MODAL — LINHA DO TEMPO DA COBERTURA
+# Agrupa por veículo: linha do tempo mostra primeira publicação de cada um
+# e lista todas as matérias daquele veículo abaixo
 # ─────────────────────────────────────────────
-@st.dialog("📚 Cobertura da pauta", width="large")
+@st.dialog("Cobertura da pauta", width="large")
 def mostrar_cobertura(titulo, grupo):
     st.markdown(f"### {titulo}")
 
-    primeiro = grupo.iloc[0]
-    st.success(
-        f"🚀 **Primeiro a publicar:** {primeiro['veiculo']} "
-        f"— {primeiro['data_publicacao_dt'].strftime('%d/%m/%Y às %H:%M')}"
+    # Primeira publicacao de cada veiculo para montar a linha do tempo
+    primeiro_por_veiculo = (
+        grupo.sort_values("data_publicacao_dt")
+        .groupby("veiculo", sort=False)
+        .first()
+        .reset_index()
+        .sort_values("data_publicacao_dt")
+        .reset_index(drop=True)
     )
 
-    st.divider()
-    st.markdown("#### 🕐 Linha do tempo")
+    primeiro = primeiro_por_veiculo.iloc[0]
+    st.success(
+        f"Primeiro a publicar: **{primeiro['veiculo']}** "
+        f"— {primeiro['data_publicacao_dt'].strftime('%d/%m/%Y as %H:%M')}"
+    )
 
-    for i, row in grupo.iterrows():
+    total_veiculos = len(primeiro_por_veiculo)
+    total_materias = len(grupo)
+    if total_materias > total_veiculos:
+        st.caption(
+            f"{total_materias} materias no total "
+            f"({total_materias - total_veiculos} republicacoes)"
+        )
+
+    st.divider()
+    st.markdown("#### Linha do tempo")
+
+    for i, row in primeiro_por_veiculo.iterrows():
         delta = ""
         if i > 0:
-            anterior = grupo.iloc[i - 1]["data_publicacao_dt"]
+            anterior = primeiro_por_veiculo.iloc[i - 1]["data_publicacao_dt"]
             atual = row["data_publicacao_dt"]
             diff_min = int((atual - anterior).total_seconds() / 60)
             if diff_min < 60:
                 delta = f" _(+{diff_min} min)_"
             else:
-                diff_h = diff_min / 60
-                delta = f" _(+{diff_h:.1f}h)_"
+                delta = f" _(+{diff_min / 60:.1f}h)_"
 
         hora_fmt = row["data_publicacao_dt"].strftime("%d/%m %H:%M")
-        is_primeiro = i == 0
 
         col_hora, col_info = st.columns([1, 4])
         with col_hora:
-            if is_primeiro:
-                st.markdown(f"**🥇 {hora_fmt}**")
+            if i == 0:
+                st.markdown(f"**{hora_fmt}** 🥇")
             else:
-                st.markdown(f"🕐 {hora_fmt}{delta}")
+                st.markdown(f"{hora_fmt}{delta}")
         with col_info:
-            st.markdown(
-                f"**{row['veiculo']}** — [{row['titulo']}]({row['url']})"
+            materias_veiculo = (
+                grupo[grupo["veiculo"] == row["veiculo"]]
+                .sort_values("data_publicacao_dt")
             )
+            st.markdown(f"**{row['veiculo']}**")
+            for _, mat in materias_veiculo.iterrows():
+                hora_mat = mat["data_publicacao_dt"].strftime("%H:%M")
+                st.markdown(
+                    f"&nbsp;&nbsp;&nbsp;↳ [{mat['titulo']}]({mat['url']}) `{hora_mat}`",
+                    unsafe_allow_html=True
+                )
 
-        if i < len(grupo) - 1:
-            st.markdown("<hr style='margin:4px 0; border-color:#eee'>", unsafe_allow_html=True)
+        if i < len(primeiro_por_veiculo) - 1:
+            st.markdown(
+                "<hr style='margin:4px 0; border-color:#eee'>",
+                unsafe_allow_html=True
+            )
 
 
 # ─────────────────────────────────────────────
 # LAYOUT PRINCIPAL
 # ─────────────────────────────────────────────
-st.title("📡 Monitor de Pauta")
+st.title("Monitor de Pauta")
 
 df_raw = carregar_dados()
 
-# ── ALERTA DE COLETA ──────────────────────────
+# Alerta de coleta
 ultima_coleta = df_raw["data_coleta_dt"].max()
 if pd.notna(ultima_coleta):
     horas_sem_atualizar = (
@@ -253,17 +274,16 @@ if pd.notna(ultima_coleta):
     ).total_seconds() / 3600
 
     if horas_sem_atualizar > 6:
-        st.error(f"⚠️ Sem atualização há {horas_sem_atualizar:.1f} horas")
+        st.error(f"Sem atualizacao ha {horas_sem_atualizar:.1f} horas")
     else:
         st.success(
-            f"✅ Última coleta: "
-            f"{ultima_coleta.strftime('%d/%m/%Y às %H:%M')} "
-            f"({horas_sem_atualizar:.1f}h atrás)"
+            f"Ultima coleta: "
+            f"{ultima_coleta.strftime('%d/%m/%Y as %H:%M')} "
+            f"({horas_sem_atualizar:.1f}h atras)"
         )
 
 st.divider()
 
-# ── AGRUPAMENTO ───────────────────────────────
 df_agrupado = agrupar_noticias_semelhantes(df_raw)
 df_pautas   = construir_pautas(df_agrupado)
 
@@ -271,11 +291,11 @@ if df_pautas.empty:
     st.warning("Nenhuma pauta encontrada.")
     st.stop()
 
-# ── FILTROS ───────────────────────────────────
+# Filtros
 col_f1, col_f2, col_f3, col_f4 = st.columns([2, 1, 1, 1])
 
 with col_f1:
-    busca = st.text_input("🔍 Buscar pauta", placeholder="Palavra-chave...")
+    busca = st.text_input("Buscar pauta", placeholder="Palavra-chave...")
 
 with col_f2:
     temas_disponiveis = ["Todos"] + sorted(df_pautas["tema"].unique().tolist())
@@ -286,9 +306,8 @@ with col_f3:
     status_sel = st.selectbox("Status", status_disponiveis)
 
 with col_f4:
-    modo = st.radio("Visualização", ["Cards", "Tabela"], horizontal=True)
+    modo = st.radio("Visualizacao", ["Cards", "Tabela"], horizontal=True)
 
-# ── APLICA FILTROS ────────────────────────────
 df_filtrado = df_pautas.copy()
 
 if busca:
@@ -302,16 +321,15 @@ if tema_sel != "Todos":
 if status_sel != "Todos":
     df_filtrado = df_filtrado[df_filtrado["status"] == status_sel]
 
-# ── MÉTRICAS ──────────────────────────────────
+# Metricas
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Pautas", len(df_filtrado))
 m2.metric("🎯 Furos", len(df_filtrado[df_filtrado["status"] == "🎯 Furo"]))
 m3.metric("🔥 Quentes", len(df_filtrado[df_filtrado["status"] == "🔥 Quente"]))
-m4.metric("Matérias totais", int(df_filtrado["total_materias"].sum()))
+m4.metric("Materias totais", int(df_filtrado["total_materias"].sum()))
 
 st.divider()
 
-# ── VISUALIZAÇÃO ──────────────────────────────
 pautas_ord = df_filtrado.sort_values(
     ["score", "ultima_data"], ascending=[False, False]
 ).reset_index(drop=True)
@@ -323,10 +341,10 @@ if modo == "Tabela":
     ]].rename(columns={
         "titulo":            "Pauta",
         "origem":            "Quem publicou primeiro",
-        "primeira_data_fmt": "Hora da 1ª publicação",
-        "ultima_data_fmt":   "Última repercussão",
-        "total_veiculos":    "Veículos",
-        "total_materias":    "Matérias",
+        "primeira_data_fmt": "Hora da 1a publicacao",
+        "ultima_data_fmt":   "Ultima repercussao",
+        "total_veiculos":    "Veiculos",
+        "total_materias":    "Materias",
         "score":             "Score",
         "status":            "Status",
         "tema":              "Tema",
@@ -349,21 +367,19 @@ else:
                     if pauta["status"] == "🎯 Furo":
                         st.info(
                             f"🎯 **Furo de {pauta['origem']}** — "
-                            f"{pauta['total_veiculos'] - 1} veículos seguiram"
+                            f"{pauta['total_veiculos'] - 1} veiculos seguiram"
                         )
                     else:
                         st.caption(
-                            f"🚀 **Primeiro:** {pauta['origem']} "
+                            f"Primeiro: **{pauta['origem']}** "
                             f"— {pauta['primeira_data_fmt']}"
                         )
 
-                    st.caption(
-                        f"🕒 **Última repercussão:** {pauta['ultima_data_fmt']}"
-                    )
+                    st.caption(f"Ultima repercussao: {pauta['ultima_data_fmt']}")
 
                     st.write(
-                        f"📡 {pauta['total_veiculos']} veículos "
-                        f"· 📰 {pauta['total_materias']} matérias "
+                        f"📡 {pauta['total_veiculos']} veiculos "
+                        f"· 📰 {pauta['total_materias']} materias "
                         f"· ⭐ Score {pauta['score']}"
                     )
 
