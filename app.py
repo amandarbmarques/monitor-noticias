@@ -214,180 +214,45 @@ def mostrar_dialog(titulo, grupo):
 
     st.divider()
 
-    for pos, (_, row) in enumerate(
-        grupo.iterrows(),
-        start=1
-    ):
+if modo == "Editor":
 
-        st.markdown(
-            f"**{pos}. {row['veiculo']}**"
-        )
-
-        st.caption(
-            row["data_formatada"]
-        )
-
-        st.write(row["titulo"])
-
-        st.link_button(
-            "Abrir notícia",
-            row["url"]
-        )
-
-        st.divider()
-
-df = carregar_dados()
-
-df["data_dt"] = pd.to_datetime(
-    df["data_publicacao"],
-    errors="coerce",
-    utc=True
-)
-
-if "data_coleta" in df.columns:
-    df["data_dt"] = df["data_dt"].fillna(
-        pd.to_datetime(
-            df["data_coleta"],
-            errors="coerce",
-            utc=True
-        )
-    )
-
-df["data_dt"] = df["data_dt"].fillna(
-    pd.Timestamp.now(tz="UTC")
-)
-
-df["data_dt"] = (
-    df["data_dt"]
-    .dt.tz_convert("America/Sao_Paulo")
-)
-
-df["data_formatada"] = (
-    df["data_dt"]
-    .dt.strftime("%d/%m %H:%M")
-)
-
-df["tema"] = df["titulo"].apply(
-    classificar_tema
-)
-
-df = agrupar_noticias_semelhantes(df)
-
-df_pautas = construir_pautas(df)
-
-st.title("📰 Monitor de Notícias")
-
-modo = st.radio(
-    "Visualização",
-    ["Cards", "Editor"],
-    horizontal=True
-)
-
-busca = st.text_input(
-    "",
-    placeholder="🔎 Buscar...",
-    label_visibility="collapsed"
-)
-
-df_filtrado = df_pautas.copy()
-
-if busca:
-    df_filtrado = df_filtrado[
-        df_filtrado["titulo"].str.contains(
-            busca,
-            case=False,
-            na=False
-        )
-    ]
-
-m1, m2, m3, m4 = st.columns(4)
-
-m1.metric(
-    "Pautas",
-    len(df_filtrado)
-)
-
-m2.metric(
-    "Matérias",
-    int(
-        df_filtrado["total_materias"].sum()
-    )
-)
-
-m3.metric(
-    "Repercutidas",
-    len(
-        df_filtrado[
-            df_filtrado["total_veiculos"] > 1
+    tabela = df_filtrado[
+        [
+            "titulo",
+            "origem",
+            "total_veiculos",
+            "total_materias",
+            "score",
+            "status"
         ]
-    )
-)
-
-m4.metric(
-    "Veículos",
-    df["veiculo"].nunique()
-)
-
-st.divider()
-
-tabela = df_filtrado[
-    [
-        "titulo",
-        "origem",
-        "total_veiculos",
-        "total_materias",
-        "score",
-        "status"
-    ]
-].rename(
-    columns={
-        "titulo":"Pauta",
-        "origem":"Origem",
-        "total_veiculos":"Veículos",
-        "total_materias":"Matérias",
-        "score":"Score",
-        "status":"Status"
-    }
-)
-
-st.dataframe(
-    tabela.sort_values(
-        "Score",
-        ascending=False
-    ),
-    use_container_width=True,
-    hide_index=True
-)
-
-    tabela = pd.DataFrame(linhas)
-
-    tabela = tabela.sort_values(
-        "Veículos",
-        ascending=False
+    ].rename(
+        columns={
+            "titulo": "Pauta",
+            "origem": "Origem",
+            "total_veiculos": "Veículos",
+            "total_materias": "Matérias",
+            "score": "Score",
+            "status": "Status"
+        }
     )
 
     st.dataframe(
-        tabela,
+        tabela.sort_values(
+            "Score",
+            ascending=False
+        ),
         use_container_width=True,
         hide_index=True
     )
 
 else:
 
-    df_filtrado["total_similares"] = (
-        df_filtrado.groupby("grupo_noticia")
-        ["grupo_noticia"]
-        .transform("count")
+    pautas = df_filtrado.sort_values(
+        ["score", "ultima_data"],
+        ascending=[False, False]
     )
 
-    df_filtrado = df_filtrado.sort_values(
-        ["total_similares","data_dt"],
-        ascending=[False,False]
-    )
-
-    itens = df_filtrado.reset_index(
-        drop=True
-    )
+    itens = pautas.reset_index(drop=True)
 
     for i in range(0, len(itens), 3):
 
@@ -395,56 +260,70 @@ else:
 
         for j in range(3):
 
-            if i+j >= len(itens):
+            if i + j >= len(itens):
                 continue
 
-            row = itens.iloc[i+j]
-
-            grupo = df[
-                df["grupo_noticia"]
-                == row["grupo_noticia"]
-            ]
+            pauta = itens.iloc[i + j]
 
             with cols[j]:
 
                 with st.container(border=True):
 
                     st.markdown(
-                        f"### {row['titulo']}"
+                        f"### {pauta['titulo']}"
                     )
 
                     st.caption(
-                        row["veiculo"]
+                        pauta["status"]
                     )
 
                     st.caption(
-                        row["data_formatada"]
+                        f"🚀 Primeiro: {pauta['origem']}"
+                    )
+
+                    st.caption(
+                        f"🕒 Última repercussão: {pauta['ultima_data_fmt']}"
                     )
 
                     st.write(
-                        f"Repercussão: "
-                        f"{len(grupo)} veículos"
+                        f"📡 {pauta['total_veiculos']} veículos"
+                    )
+
+                    st.write(
+                        f"📰 {pauta['total_materias']} matérias"
+                    )
+
+                    st.write(
+                        f"🎯 Score: {pauta['score']}"
+                    )
+
+                    st.caption(
+                        " • ".join(
+                            pauta["veiculos"][:8]
+                        )
                     )
 
                     c1, c2 = st.columns(2)
 
                     with c1:
+
                         st.link_button(
-                            "Abrir",
-                            row["url"],
+                            "Origem",
+                            pauta["url"],
                             use_container_width=True
                         )
 
                     with c2:
-                        if len(grupo) > 1:
-                            if st.button(
-                                "Repercussão",
-                                key=f"r_{i}_{j}",
-                                use_container_width=True
-                            ):
-                                mostrar_dialog(
-                                    row["titulo"],
-                                    grupo.sort_values(
-                                        "data_dt"
+
+                        if st.button(
+                            "Cobertura",
+                            key=f"pauta_{pauta['grupo_id']}",
+                            use_container_width=True
+                        ):
+
+                            mostrar_dialog(
+                                pauta["titulo"],
+                                pauta["grupo"]
+                            )
                                     )
                                 )
