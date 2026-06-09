@@ -228,9 +228,11 @@ def construir_pautas(df):
                 ultimo["data_dt"],
 
             "ultima_data_fmt":
-                ultimo["data_dt"].strftime(
-                    "%d/%m %H:%M"
-                ),
+    (
+        ultimo["data_dt"].strftime("%d/%m %H:%M")
+        if pd.notna(ultimo["data_dt"])
+        else "Sem data"
+    ),
 
             "total_materias":
                 total_materias,
