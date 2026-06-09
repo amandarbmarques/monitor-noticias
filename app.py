@@ -119,6 +119,61 @@ def agrupar_noticias_semelhantes(df):
         ascending=False
     )
 
+def construir_pautas(df):
+
+    pautas = []
+
+    agora = pd.Timestamp.now(
+        tz="America/Sao_Paulo"
+    )
+
+    for grupo_id, grupo in df.groupby("grupo_noticia"):
+
+        grupo = grupo.sort_values("data_dt")
+
+        primeiro = grupo.iloc[0]
+        ultimo = grupo.iloc[-1]
+
+        total_materias = len(grupo)
+        total_veiculos = grupo["veiculo"].nunique()
+
+        idade_horas = (
+            agora - ultimo["data_dt"]
+        ).total_seconds() / 3600
+
+        score = (
+            total_veiculos * 5
+            +
+            total_materias * 2
+            +
+            max(0, 24 - idade_horas)
+        )
+
+        if idade_horas <= 12 and total_veiculos >= 3:
+            status = "🔥 Quente"
+        elif idade_horas <= 24:
+            status = "📈 Crescendo"
+        else:
+            status = "💤 Esfriando"
+
+        pautas.append({
+            "grupo_id": grupo_id,
+            "titulo": primeiro["titulo"],
+            "origem": primeiro["veiculo"],
+            "url": primeiro["url"],
+            "primeira_data": primeiro["data_dt"],
+            "ultima_data": ultimo["data_dt"],
+            "ultima_data_fmt": ultimo["data_dt"].strftime("%d/%m %H:%M"),
+            "total_materias": total_materias,
+            "total_veiculos": total_veiculos,
+            "veiculos": list(grupo["veiculo"].unique()),
+            "score": round(score),
+            "status": status,
+            "grupo": grupo
+        })
+
+    return pd.DataFrame(pautas)
+
 @st.cache_data(ttl=30)
 def carregar_dados():
     DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
