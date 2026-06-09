@@ -1,110 +1,93 @@
-# app.py
+
+# VERSÃO 2 - Monitor de Notícias
+# Melhorias:
+# - Dashboard de métricas
+# - Modal de repercussão
+# - Cards com status de repercussão
+# - Ordenação por repercussão
+# - Modo Editor (tabela por pauta)
 
 import streamlit as st
 import pandas as pd
 import psycopg2
 
 st.set_page_config(
-    page_title="Monitor Editorial",
+    page_title="Monitor de Notícias",
     page_icon="📰",
     layout="wide"
 )
 
-# =====================================
-# BANCO
-# =====================================
+if "modal_aberto" not in st.session_state:
+    st.session_state.modal_aberto = None
 
-DB_URI = st.secrets["DB_URI"]
-st.write("Conexão carregada")
+def classificar_tema(titulo):
+    if not isinstance(titulo, str):
+        return "Geral"
 
-@st.cache_data(ttl=60)
-@st.cache_data(ttl=60)
-@st.cache_data(ttl=60)
-def carregar_dados():
+    t = titulo.lower()
 
-    try:
-        conn = psycopg2.connect(DB_URI)
+    if any(x in t for x in [
+        "lula","governo","stf","política","congresso",
+        "senado","moraes","pt","pl","eleições"
+    ]):
+        return "Política/Judiciário"
 
-        df = pd.read_sql(
-            """
-            SELECT *
-            FROM noticias
-            ORDER BY data_coleta DESC
-            """,
-            conn
-        )
+    if any(x in t for x in [
+        "economia","inflação","dólar","mercado",
+        "haddad","juros","pib"
+    ]):
+        return "Economia"
 
-        conn.close()
+    return "Geral"
 
-        return df
-
-    except Exception as e:
-
-        st.error("Erro ao conectar ao banco")
-
-        st.write("Tipo do erro:")
-        st.write(type(e))
-
-        st.write("Mensagem:")
-        st.write(str(e))
-
-        st.stop()
-
-
-# =====================================
-# TEXTO
-# =====================================
-
-def extrair_palavras_chave(titulo):
-
+def extrair_palavras_chave(titulo, n=7):
     stop_words = {
-        "a","o","e","de","da","do","em",
-        "para","por","que","é","um","uma",
-        "os","as","com","mais","não",
-        "sobre","após","contra","entre"
+        "a","o","e","de","da","do","em","para","por",
+        "que","é","um","uma","os","as","com","mais",
+        "não","sobre","após","contra"
     }
 
-    titulo = str(titulo)
-
-    for char in [".", ",", "!", "?", ":", ";", "-", "(", ")"]:
+    for char in [".", ",", "!", "?", "(", ")", "-", ":"]:
         titulo = titulo.replace(char, " ")
 
     palavras = titulo.lower().split()
 
-    return {
+    return [
         p for p in palavras
         if p not in stop_words and len(p) > 3
-    }
+    ][:n]
 
+def agrupar_noticias_semelhantes(df):
 
-# =====================================
-# AGRUPAMENTO
-# =====================================
-
-def agrupar_pautas(df):
-
-    df = df.sort_values(
-        "data_dt"
-    ).reset_index(drop=True)
-
-    df["grupo_pauta"] = None
+    df = df.sort_values("data_dt").reset_index(drop=True)
+    df["grupo_noticia"] = None
 
     grupos = {}
 
     for idx, row in df.iterrows():
 
-        palavras = extrair_palavras_chave(
-            row["titulo"]
+        palavras = set(
+            extrair_palavras_chave(
+                str(row["titulo"])
+            )
         )
 
-        melhor_grupo = None
-        melhor_score = 0
+        data_atual = row["data_dt"]
+
+        melhor = None
+        score_melhor = 0
 
         for grupo_id, dados in grupos.items():
 
+            diferenca_horas = abs(
+                (data_atual - dados["data"]).total_seconds()
+            ) / 3600
+
+            if diferenca_horas > 24:
+                continue
+
             inter = len(
-                palavras &
-                dados["palavras"]
+                palavras & dados["palavras"]
             )
 
             menor = min(
@@ -112,230 +95,80 @@ def agrupar_pautas(df):
                 len(dados["palavras"])
             )
 
-            score = (
-                inter / menor
-                if menor else 0
-            )
+            score = inter / menor if menor else 0
 
-            if score > 0.50 and score > melhor_score:
-                melhor_score = score
-                melhor_grupo = grupo_id
+            if score >= 0.55 and score > score_melhor:
+                score_melhor = score
+                melhor = grupo_id
 
-        if melhor_grupo is None:
-
-            novo_id = len(grupos)
-
-            grupos[novo_id] = {
-                "palavras": palavras
+        if melhor is None:
+            melhor = len(grupos)
+            grupos[melhor] = {
+                "palavras": palavras,
+                "data": data_atual
             }
-
-            melhor_grupo = novo_id
-
         else:
-
-            grupos[
-                melhor_grupo
-            ]["palavras"].update(
+            grupos[melhor]["palavras"].update(
                 palavras
             )
 
-        df.at[
-            idx,
-            "grupo_pauta"
-        ] = melhor_grupo
+        df.at[idx, "grupo_noticia"] = melhor
 
+    return df.sort_values(
+        "data_dt",
+        ascending=False
+    )
+
+@st.cache_data(ttl=30)
+def carregar_dados():
+    DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
+
+    conn = psycopg2.connect(DB_URI)
+
+    df = pd.read_sql(
+        "SELECT * FROM noticias ORDER BY data_coleta DESC",
+        conn
+    )
+
+    conn.close()
     return df
 
+@st.dialog("📚 Repercussão da pauta")
+def mostrar_dialog(titulo, grupo):
 
-# =====================================
-# CONSTRUIR PAUTAS
-# =====================================
+    st.markdown(f"### {titulo}")
 
-def construir_pautas(df):
+    primeira = grupo.iloc[0]
 
-    pautas = []
-
-    agora = pd.Timestamp.now(
-        tz="America/Sao_Paulo"
+    st.success(
+        f"Primeiro registro: "
+        f"{primeira['veiculo']} "
+        f"({primeira['data_formatada']})"
     )
 
-    for grupo_id, grupo in df.groupby(
-        "grupo_pauta"
-    ):
+    st.divider()
 
-        grupo = grupo.sort_values(
-            "data_dt"
-        )
-
-        primeiro = grupo.iloc[0]
-        ultimo = grupo.iloc[-1]
-
-        total_materias = len(grupo)
-        total_veiculos = grupo[
-            "veiculo"
-        ].nunique()
-
-        idade_horas = (
-            agora - ultimo["data_dt"]
-        ).total_seconds() / 3600
-
-        duracao = (
-            grupo["data_dt"].max()
-            -
-            grupo["data_dt"].min()
-        ).total_seconds() / 3600
-
-        duracao = max(duracao, 1)
-
-        velocidade = (
-            total_materias / duracao
-        )
-
-        score = (
-            total_veiculos * 5
-            +
-            total_materias * 2
-            +
-            max(0, 24 - idade_horas)
-        )
-
-        if idade_horas <= 12 and total_veiculos >= 3:
-            status = "🔥 Quente"
-
-        elif idade_horas <= 24:
-            status = "📈 Crescendo"
-
-        else:
-            status = "💤 Esfriando"
-
-        pautas.append({
-
-            "grupo_id": grupo_id,
-
-            "titulo":
-                primeiro["titulo"],
-
-            "origem":
-                primeiro["veiculo"],
-
-            "url":
-                primeiro["url"],
-
-            "primeira_data":
-                primeiro["data_dt"],
-
-            "ultima_data":
-                ultimo["data_dt"],
-
-            "ultima_data_fmt":
-    (
-        ultimo["data_dt"].strftime("%d/%m %H:%M")
-        if pd.notna(ultimo["data_dt"])
-        else "Sem data"
-    ),
-
-            "total_materias":
-                total_materias,
-
-            "total_veiculos":
-                total_veiculos,
-
-            "veiculos":
-                list(
-                    grupo["veiculo"]
-                    .unique()
-                ),
-
-            "velocidade":
-                round(
-                    velocidade,
-                    1
-                ),
-
-            "score":
-                round(score),
-
-            "idade_horas":
-                round(
-                    idade_horas,
-                    1
-                ),
-
-            "status":
-                status,
-
-            "grupo":
-                grupo
-        })
-
-    return pd.DataFrame(
-        pautas
-    )
-
-
-# =====================================
-# DIALOG
-# =====================================
-
-@st.dialog("📰 Cobertura")
-def mostrar_cobertura(
-    titulo,
-    grupo
-):
-
-    grupo = grupo.sort_values(
-        "data_dt"
-    )
-
-    st.subheader(titulo)
-
-    inicio = grupo.iloc[0][
-        "data_dt"
-    ]
-
-    for i, (
-        _,
-        row
-    ) in enumerate(
+    for pos, (_, row) in enumerate(
         grupo.iterrows(),
         start=1
     ):
 
-        delta = (
-            row["data_dt"]
-            -
-            inicio
-        )
-
-        minutos = int(
-            delta.total_seconds()
-            / 60
-        )
-
         st.markdown(
-            f"### {i}. {row['veiculo']}"
+            f"**{pos}. {row['veiculo']}**"
         )
 
         st.caption(
-            f"{row['data_dt'].strftime('%d/%m %H:%M')} "
-            f"(+{minutos} min)"
+            row["data_formatada"]
         )
 
-        st.write(
-            row["titulo"]
-        )
+        st.write(row["titulo"])
 
         st.link_button(
-            "Abrir matéria",
+            "Abrir notícia",
             row["url"]
         )
 
         st.divider()
-
-
-# =====================================
-# DADOS
-# =====================================
 
 df = carregar_dados()
 
@@ -345,215 +178,190 @@ df["data_dt"] = pd.to_datetime(
     utc=True
 )
 
-df["data_dt"] = df[
-    "data_dt"
-].fillna(
-
-    pd.to_datetime(
-        df["data_coleta"],
-        utc=True,
-        errors="coerce"
+if "data_coleta" in df.columns:
+    df["data_dt"] = df["data_dt"].fillna(
+        pd.to_datetime(
+            df["data_coleta"],
+            errors="coerce",
+            utc=True
+        )
     )
+
+df["data_dt"] = df["data_dt"].fillna(
+    pd.Timestamp.now(tz="UTC")
 )
 
 df["data_dt"] = (
     df["data_dt"]
-    .dt.tz_convert(
-        "America/Sao_Paulo"
-    )
+    .dt.tz_convert("America/Sao_Paulo")
 )
 
-# =====================================
-# ALERTA SAÚDE
-# =====================================
-
-ultima_coleta = pd.to_datetime(
-    df["data_coleta"].max(),
-    utc=True
+df["data_formatada"] = (
+    df["data_dt"]
+    .dt.strftime("%d/%m %H:%M")
 )
 
-horas = (
-    pd.Timestamp.now(
-        tz="UTC"
-    )
-    -
-    ultima_coleta
-).total_seconds() / 3600
+df["tema"] = df["titulo"].apply(
+    classificar_tema
+)
 
-if horas > 6:
+df = agrupar_noticias_semelhantes(df)
 
-    st.error(
-        f"⚠️ Sem novas notícias há {horas:.1f} horas"
-    )
+st.title("📰 Monitor de Notícias")
 
-else:
-
-    st.success(
-        f"✅ Atualizado há {horas:.1f} horas"
-    )
-
-# =====================================
-# PAUTAS
-# =====================================
-
-df = agrupar_pautas(df)
-
-df_pautas = construir_pautas(df)
-
-st.title(
-    "📰 Monitor Editorial"
+modo = st.radio(
+    "Visualização",
+    ["Cards", "Editor"],
+    horizontal=True
 )
 
 busca = st.text_input(
     "",
-    placeholder="🔎 Buscar pauta...",
+    placeholder="🔎 Buscar...",
     label_visibility="collapsed"
 )
 
-if busca:
+df_filtrado = df.copy()
 
-    df_pautas = df_pautas[
-        df_pautas["titulo"]
-        .str.contains(
+if busca:
+    df_filtrado = df_filtrado[
+        df_filtrado["titulo"].str.contains(
             busca,
             case=False,
             na=False
         )
     ]
 
-# =====================================
-# MÉTRICAS
-# =====================================
-
-c1, c2, c3, c4 = st.columns(4)
-
-c1.metric(
-    "Pautas",
-    len(df_pautas)
+grupos = (
+    df_filtrado.groupby("grupo_noticia")
+    .size()
+    .reset_index(name="total")
 )
 
-c2.metric(
-    "Matérias",
-    int(
-        df_pautas[
-            "total_materias"
-        ].sum()
-    )
-)
+m1, m2, m3, m4 = st.columns(4)
 
-c3.metric(
+m1.metric("Notícias", len(df_filtrado))
+m2.metric("Pautas", len(grupos))
+m3.metric(
+    "Repercutidas",
+    len(grupos[grupos.total > 1])
+)
+m4.metric(
     "Veículos",
-    df["veiculo"].nunique()
-)
-
-c4.metric(
-    "Última coleta",
-    ultima_coleta
-    .tz_convert(
-        "America/Sao_Paulo"
-    )
-    .strftime("%d/%m %H:%M")
+    df_filtrado["veiculo"].nunique()
 )
 
 st.divider()
 
-# =====================================
-# PAUTAS QUENTES
-# =====================================
+if modo == "Editor":
 
-st.subheader(
-    "🔥 Pautas Quentes"
-)
+    linhas = []
 
-quentes = df_pautas[
-    df_pautas["status"]
-    == "🔥 Quente"
-].sort_values(
-    "score",
-    ascending=False
-)
-
-for _, pauta in quentes.head(10).iterrows():
-
-    with st.container(
-        border=True
+    for grupo_id, grupo in df_filtrado.groupby(
+        "grupo_noticia"
     ):
 
-        st.markdown(
-            f"### {pauta['titulo']}"
+        grupo = grupo.sort_values(
+            "data_dt"
         )
 
-        st.caption(
-            pauta["status"]
-        )
+        primeiro = grupo.iloc[0]
 
-        st.write(
-            f"📡 {pauta['total_veiculos']} veículos"
-        )
+        linhas.append({
+            "Tema": primeiro["titulo"][:120],
+            "Primeiro veículo": primeiro["veiculo"],
+            "Hora": primeiro["hora"]
+            if "hora" in primeiro
+            else primeiro["data_dt"].strftime("%H:%M"),
+            "Veículos": len(grupo)
+        })
 
-        st.write(
-            f"📰 {pauta['total_materias']} matérias"
-        )
+    tabela = pd.DataFrame(linhas)
 
-        st.write(
-            f"⚡ {pauta['velocidade']} matérias/h"
-        )
+    tabela = tabela.sort_values(
+        "Veículos",
+        ascending=False
+    )
 
-        st.write(
-            f"🎯 Score: {pauta['score']}"
-        )
+    st.dataframe(
+        tabela,
+        use_container_width=True,
+        hide_index=True
+    )
 
-        st.caption(
-            f"Última repercussão: "
-            f"{pauta['ultima_data_fmt']}"
-        )
+else:
 
-        a, b = st.columns(2)
+    df_filtrado["total_similares"] = (
+        df_filtrado.groupby("grupo_noticia")
+        ["grupo_noticia"]
+        .transform("count")
+    )
 
-        with a:
+    df_filtrado = df_filtrado.sort_values(
+        ["total_similares","data_dt"],
+        ascending=[False,False]
+    )
 
-            st.link_button(
-                "Origem",
-                pauta["url"]
-            )
+    itens = df_filtrado.reset_index(
+        drop=True
+    )
 
-        with b:
+    for i in range(0, len(itens), 3):
 
-            if st.button(
-                "Cobertura",
-                key=f"cob_{pauta['grupo_id']}"
-            ):
-                mostrar_cobertura(
-                    pauta["titulo"],
-                    pauta["grupo"]
-                )
+        cols = st.columns(3)
 
-# =====================================
-# RANKING
-# =====================================
+        for j in range(3):
 
-st.divider()
+            if i+j >= len(itens):
+                continue
 
-st.subheader(
-    "📊 Ranking Editorial"
-)
+            row = itens.iloc[i+j]
 
-ranking = df_pautas[
-    [
-        "titulo",
-        "status",
-        "total_veiculos",
-        "total_materias",
-        "velocidade",
-        "score"
-    ]
-].sort_values(
-    "score",
-    ascending=False
-)
+            grupo = df[
+                df["grupo_noticia"]
+                == row["grupo_noticia"]
+            ]
 
-st.dataframe(
-    ranking,
-    use_container_width=True,
-    hide_index=True
-)
+            with cols[j]:
+
+                with st.container(border=True):
+
+                    st.markdown(
+                        f"### {row['titulo']}"
+                    )
+
+                    st.caption(
+                        row["veiculo"]
+                    )
+
+                    st.caption(
+                        row["data_formatada"]
+                    )
+
+                    st.write(
+                        f"Repercussão: "
+                        f"{len(grupo)} veículos"
+                    )
+
+                    c1, c2 = st.columns(2)
+
+                    with c1:
+                        st.link_button(
+                            "Abrir",
+                            row["url"],
+                            use_container_width=True
+                        )
+
+                    with c2:
+                        if len(grupo) > 1:
+                            if st.button(
+                                "Repercussão",
+                                key=f"r_{i}_{j}",
+                                use_container_width=True
+                            ):
+                                mostrar_dialog(
+                                    row["titulo"],
+                                    grupo.sort_values(
+                                        "data_dt"
+                                    )
+                                )
