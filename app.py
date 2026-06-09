@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 from dateutil import parser as dateparser
-import pytz
+import zoneinfo
 
 st.set_page_config(
     page_title="Monitor de Pauta",
