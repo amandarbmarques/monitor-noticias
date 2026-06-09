@@ -15,7 +15,7 @@ st.set_page_config(
 # =====================================
 
 DB_URI = st.secrets["DB_URI"]
-
+st.write("Conexão carregada")
 
 @st.cache_data(ttl=60)
 @st.cache_data(ttl=60)
