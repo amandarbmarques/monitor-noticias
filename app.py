@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import psycopg2
 from dateutil import parser as dateparser
-import zoneinfo
+from zoneinfo import ZoneInfo
 
 st.set_page_config(
     page_title="Monitor de Pauta",
@@ -34,7 +34,7 @@ def parse_data(valor):
             return pd.NaT
         # Garante timezone-aware
         if dt.tzinfo is None:
-            dt = BR_TZ.localize(dt)
+            dt.replace(tzinfo=BR_TZ)
         else:
             dt = dt.astimezone(BR_TZ)
         return pd.Timestamp(dt)
