@@ -330,28 +330,34 @@ m4.metric(
 
 st.divider()
 
-if modo == "Editor":
+tabela = df_filtrado[
+    [
+        "titulo",
+        "origem",
+        "total_veiculos",
+        "total_materias",
+        "score",
+        "status"
+    ]
+].rename(
+    columns={
+        "titulo":"Pauta",
+        "origem":"Origem",
+        "total_veiculos":"Veículos",
+        "total_materias":"Matérias",
+        "score":"Score",
+        "status":"Status"
+    }
+)
 
-    linhas = []
-
-    for grupo_id, grupo in df_filtrado.groupby(
-        "grupo_noticia"
-    ):
-
-        grupo = grupo.sort_values(
-            "data_dt"
-        )
-
-        primeiro = grupo.iloc[0]
-
-        linhas.append({
-            "Tema": primeiro["titulo"][:120],
-            "Primeiro veículo": primeiro["veiculo"],
-            "Hora": primeiro["hora"]
-            if "hora" in primeiro
-            else primeiro["data_dt"].strftime("%H:%M"),
-            "Veículos": len(grupo)
-        })
+st.dataframe(
+    tabela.sort_values(
+        "Score",
+        ascending=False
+    ),
+    use_container_width=True,
+    hide_index=True
+)
 
     tabela = pd.DataFrame(linhas)
 
