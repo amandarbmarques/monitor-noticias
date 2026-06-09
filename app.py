@@ -289,7 +289,7 @@ busca = st.text_input(
     label_visibility="collapsed"
 )
 
-df_filtrado = df.copy()
+df_filtrado = df_pautas.copy()
 
 if busca:
     df_filtrado = df_filtrado[
