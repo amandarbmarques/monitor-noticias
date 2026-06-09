@@ -327,3 +327,28 @@ else:
                             )
                                     )
                                 )
+
+ultima_coleta = pd.to_datetime(
+    df["data_coleta"].max(),
+    utc=True,
+    errors="coerce"
+)
+
+horas_sem_atualizar = (
+    pd.Timestamp.now(tz="UTC")
+    - ultima_coleta
+).total_seconds() / 3600
+
+if horas_sem_atualizar > 6:
+
+    st.error(
+        f"⚠️ Sem atualização há "
+        f"{horas_sem_atualizar:.1f} horas"
+    )
+
+else:
+
+    st.success(
+        f"✅ Atualizado há "
+        f"{horas_sem_atualizar:.1f} horas"
+    )
