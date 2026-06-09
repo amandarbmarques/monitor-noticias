@@ -273,6 +273,8 @@ df["tema"] = df["titulo"].apply(
 
 df = agrupar_noticias_semelhantes(df)
 
+df_pautas = construir_pautas(df)
+
 st.title("📰 Monitor de Notícias")
 
 modo = st.radio(
