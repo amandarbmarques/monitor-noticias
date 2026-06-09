@@ -37,10 +37,35 @@ def carregar_dados():
 
         return df
 
+    @st.cache_data(ttl=60)
+def carregar_dados():
+
+    st.write("Tentando conectar...")
+
+    try:
+        conn = psycopg2.connect(DB_URI)
+
+        st.success("Conectou!")
+
+        df = pd.read_sql(
+            """
+            SELECT *
+            FROM noticias
+            ORDER BY data_coleta DESC
+            """,
+            conn
+        )
+
+        conn.close()
+
+        return df
+
     except Exception as e:
-        st.error("Erro ao conectar")
-        st.exception(e)
-        st.stop()
+
+        st.write(type(e))
+        st.write(str(e))
+
+        raise e
 
 
 # =====================================
