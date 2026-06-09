@@ -14,7 +14,7 @@ st.set_page_config(
 # BANCO
 # =====================================
 
-DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf!!04@aws-1-us-west-2.pooler.supabase.com:6543/postgres"
+DB_URI = "postgresql://postgres.hhfttkctypcgrdwvnhug:23062011Cf%21%2104@aws-1-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require"
 
 
 @st.cache_data(ttl=60)
