@@ -138,17 +138,17 @@ def construir_pautas(df, horas_quente=12, horas_esfriando=24):
 
         idade_horas = (agora - ultimo["data_publicacao_dt"]).total_seconds() / 3600
         score = (
-            total_veiculos * 5
+            total_veiculos * 8
             + total_materias * 2
-            + max(0, 24 - idade_horas)
+            + max(0, 36 - idade_horas)
         )
 
-        if total_veiculos >= 4:
-            status = "🎯 Furo"
-        elif total_veiculos >= 2 and idade_horas <= horas_quente:
-            status = "🔥 Quente"
-        elif idade_horas <= horas_esfriando:
-            status = "📈 Crescendo"
+        if total_veiculos == 1 and idade_horas <= 6:
+            status = "🎯 Exclusiva"
+        elif total_veiculos >= 4 and idade_horas <= 12:
+            status = "🔥 Viralizando"
+        elif total_veiculos >= 2:
+            status = "📈 Repercutindo"
         else:
             status = "💤 Esfriando"
 
