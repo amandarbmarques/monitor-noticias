@@ -409,6 +409,27 @@ with col_s4:
     status_disponiveis = ["Todos"] + sorted(df_pautas["status"].unique().tolist())
     status_sel = st.selectbox("Status", status_disponiveis)
 
+col_s5, col_s6 = st.columns(2)
+
+with col_s5:
+    ordenar_por = st.selectbox(
+        "Ordenar por",
+        [
+            "Score",
+            "Última repercussão",
+            "Primeira publicação",
+            "Quantidade de veículos",
+            "Quantidade de matérias"
+        ]
+    )
+
+with col_s6:
+    ordem = st.radio(
+        "Ordem",
+        ["Decrescente", "Crescente"],
+        horizontal=True
+    )
+
 # Aplica filtros
 df_filtrado = df_pautas.copy()
 
