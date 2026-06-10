@@ -109,6 +109,7 @@ def agrupar_noticias_semelhantes(df, janela_horas=36):
             grupos[melhor] = {"palavras": palavras, "data": data_atual}
         else:
             grupos[melhor]["palavras"].update(palavras)
+            grupos[melhor]["data"] = data_atual
 
         df.at[idx, "grupo_noticia"] = melhor
 
@@ -333,7 +334,7 @@ if pd.notna(ultima_coleta):
         pd.Timestamp.now(tz=BR_TZ) - ultima_coleta
     ).total_seconds() / 3600
 
-    if horas_sem_atualizar > 6:
+    if horas_sem_atualizar > 2:
         st.error(f"Sem atualizacao ha {horas_sem_atualizar:.1f} horas")
     else:
         st.success(
