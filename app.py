@@ -458,9 +458,39 @@ m4.metric("Materias totais", int(df_filtrado["total_materias"].sum()))
 
 st.divider()
 
-pautas_ord = df_filtrado.sort_values(
-    ["score", "ultima_data"], ascending=[False, False]
-).reset_index(drop=True)
+ascending = ordem == "Crescente"
+
+if ordenar_por == "Score":
+    pautas_ord = df_filtrado.sort_values(
+        "score",
+        ascending=ascending
+    )
+
+elif ordenar_por == "Última repercussão":
+    pautas_ord = df_filtrado.sort_values(
+        "ultima_data",
+        ascending=ascending
+    )
+
+elif ordenar_por == "Primeira publicação":
+    pautas_ord = df_filtrado.sort_values(
+        "primeira_data",
+        ascending=ascending
+    )
+
+elif ordenar_por == "Quantidade de veículos":
+    pautas_ord = df_filtrado.sort_values(
+        "total_veiculos",
+        ascending=ascending
+    )
+
+elif ordenar_por == "Quantidade de matérias":
+    pautas_ord = df_filtrado.sort_values(
+        "total_materias",
+        ascending=ascending
+    )
+
+pautas_ord = pautas_ord.reset_index(drop=True)
 
 # ── VISUALIZACAO ─────────────────────────────
 if modo == "Tabela":
