@@ -46,6 +46,8 @@ resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
         for fmt in formatos:
             try:
                 dt = datetime.strptime(item.published, fmt)
+                dt = dt.replace(tzinfo=UTC_TZ)
+                dt = dt.astimezone(BR_TZ)
                 resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
                 return resultado
             except:
