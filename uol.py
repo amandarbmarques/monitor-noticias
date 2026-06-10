@@ -6,6 +6,10 @@ from datetime import datetime, timedelta
 import time
 import re
 from database import insert_many_news
+from zoneinfo import ZoneInfo
+
+BR_TZ = ZoneInfo("America/Sao_Paulo")
+UTC_TZ = ZoneInfo("UTC")
 
 print("\n" + "="*80)
 print("🔴 ARQUIVO uol_debug_insert.py INICIADO!")
@@ -19,8 +23,14 @@ def extrair_data_publicacao(item, numero_item=0):
     # 1️⃣ published_parsed
     if hasattr(item, "published_parsed") and item.published_parsed:
         try:
-            dt = datetime.fromtimestamp(time.mktime(item.published_parsed))
-            resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
+           dt = datetime.fromtimestamp(
+            time.mktime(item.published_parsed),
+            tz=UTC_TZ
+        )
+
+dt = dt.astimezone(BR_TZ)
+
+resultado = dt.strftime('%Y-%m-%d %H:%M:%S')
             return resultado
         except:
             pass
